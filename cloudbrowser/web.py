@@ -34,6 +34,9 @@ class Goal(Input):
 
 class NewGoal(Goal):
     project_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_-]{0,39}$")
+    # Supplied by the client for retry-safe POST. Omitted keys create new jobs.
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128,
+                                        pattern=r"^[A-Za-z0-9:_-]+$")
 
 
 class Project(Input):
@@ -188,8 +191,23 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
 
     @app.get("/readyz")
     def ready():
-        healthy = not telegram or (telegram.task and not telegram.task.done() and time.time() - telegram.last_poll < 90)
-        return JSONResponse({"ready": bool(healthy)}, status_code=200 if healthy else 503)
+        """Operational readiness, not a claim that a browser or model job succeeded.
+
+        Excludes secret material, session IDs, data paths and provider response bodies.
+        """
+        checks = {"database": False, "worker": False, "telegram": telegram is None}
+        try:
+            checks["database"] = bool(store._rows("SELECT 1 AS alive"))
+        except Exception:
+            checks["database"] = False
+        checks["worker"] = bool(start_services and agent.worker and not agent.worker.done()
+                                and not agent.closing)
+        if telegram is not None:
+            checks["telegram"] = bool(telegram.task and not telegram.task.done()
+                                      and time.time() - telegram.last_poll < 90)
+        healthy = all(checks.values())
+        return JSONResponse({"ready": healthy, "checks": checks},
+                            status_code=200 if healthy else 503)
 
     @app.post("/api/login")
     def login(body: Login, request: Request, response: Response):
@@ -267,7 +285,8 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
     async def create_job(body: NewGoal):
         if body.project_id and body.project_id.startswith("a2a-"):
             raise ValueError("The a2a- project prefix is reserved.")
-        job = agent.enqueue(body.text, project_id=body.project_id)
+        job = agent.enqueue(body.text, request_key=("web:" + body.idempotency_key) if body.idempotency_key else None,
+                            project_id=body.project_id)
         return {"id": job["id"], "status": job["status"]}
 
     @app.get("/api/jobs/{job_id}", dependencies=[Depends(sessions.require)])

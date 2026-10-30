@@ -262,3 +262,52 @@ The repository should be considered successfully upgraded when all of the follow
 
 ---
 End of Upgrade Roadmap.
+
+---
+
+## v5.0 audited implementation plan (2026-10-30)
+
+This section supersedes **priority ordering** where the generic phases above differ; it does not erase existing Phase 0–7 design. Evidence and per-finding severity live in [ARCHITECTURE_AUDIT.md](ARCHITECTURE_AUDIT.md), [SECURITY_AUDIT.md](SECURITY_AUDIT.md), and [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+
+### Increment P0-A — implemented on `feat/v5-p0-governance-foundation`
+
+| Change | Code | Test / gate |
+| --- | --- | --- |
+| Payload-bound idempotency for dashboard and Telegram/A2A job keys | `store.py`, `web.py` | `tests/test_v5_p0.py`: duplicate same key one job; goal/project collision fails; database reopen |
+| Atomic crash reconciliation | `store.py` | Failure-injection SQLite transaction rollback test; existing unknown-effect tests |
+| Meaningful non-secret `/readyz` | `web.py` | Test worker-disabled = 503, DB status checked |
+| Evidence-first gap and security register | `docs/*AUDIT.md`, `docs/PRODUCTION_READINESS.md` | Reviewer confirms evidence paths and statuses match CI |
+
+**P0-A release rule:** use the CI result for the *final PR head* (not any earlier green commit), review the diff, and retain existing single-owner and human-approval protections. Do not claim generalized autonomous OS readiness.
+
+### Remaining P0-B — not yet implemented
+
+1. **Capability/risk policy registry:** default-deny previously unseen tools, read/write/destructive/publication classification, conditional owner approval with audit correlation ID. Must preserve current `action_policy` semantics until tests prove migration equivalent.
+2. **Model locality safeguards:** opt-in provider adapters around existing `AIClient`; default **no external fallback** for a local model endpoint, provider health/capability detection with explicit egress tests.
+3. **Operator preflight and structured audit:** startup health and diagnostics for configured worker, browser, model, Telegram without exposing credentials; redacted action and approval events.
+4. **Recovery state contract:** explicit human reconciliation of unknown third-party effects, bounded retry policy and per-stage checkpoints. No automated replay of a crash-adjacent browser mutation.
+
+### P1 — depends on P0-B
+
+- **MCP client:** behind feature flag, version-pinned server connections, schema/allowlist verification, no dynamic privilege escalation, test read-only before any write tool.
+- **PostgreSQL:** opt-in storage adapter and explicit one-way/rollback-tested migration from SQLite; no change to multi-worker topology before leases and transactional outbox are demonstrated.
+- **Scheduler:** durable task leases, worker heartbeats, resource-lock fairness, dead-letter and bounded retry; parallelize only independent DAG nodes.
+- **Browser action confirmation:** state-delta/evidence capture (URL, DOM and screenshot/trace) after a permitted operation, with unknown state on ambiguous effects.
+- **Telegram:** backward-compatible `/newtask`, `/cancel`, `/pause`, `/health` aliases only after distinct pause/cancel state transitions exist.
+
+### P2 — depends on P1 release gates
+
+- Generalized MorphGLB asset ↔ job ↔ preview contract, artifact versions and QA provenance.
+- ARUSIA episode DAG split into bounded shots because Studio `Manifest` currently enforces a 15-second / 900-frame limit. Separate character/world GLB assets and shot-level FFmpeg output.
+- Objective animation QA: foot contact/sliding, rig pose consistency, frame defects and shot/lighting continuity. Real ARUSIA approved inputs and owner visual sign-off are mandatory.
+- External Flow/CapCut integrations: official API where supported or permitted manual browser interaction; never assume free credits.
+
+### P3 — only after real pilot evidence
+
+Permission-scoped semantic/procedural memory, outcome-based replan suggestions, historical success rates and resource allocation. Never self-deploy source, policy or model-weight changes without tests and explicit approval.
+
+### Dependency edges and stop conditions
+
+`P0-A → P0-B (policy + egress) → P1 (MCP + DB leases) → P2 (asset/shot orchestration) → P3 (learning)`.
+
+**Stop/review triggers:** test failure, policy regression, ambiguous external action, secrets in logs, failed migration, unverified ARUSIA asset, or incompatible GLB rig. Maintain separate `IMPLEMENTED`, `TESTED`, `VERIFIED`, `BLOCKED`, and `NOT IMPLEMENTED` records throughout.
