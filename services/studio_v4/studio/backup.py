@@ -52,7 +52,7 @@ def worker_stopped(root: Path):
 
 
 def _db_check(db_file: Path) -> None:
-    with sqlite3.connect(f"file:{db_file}?mode=ro", uri=True) as db:
+    with contextlib.closing(sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)) as db:
         if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise ValueError("SQLite integrity check failed")
         if db.execute("PRAGMA foreign_key_check").fetchall():
@@ -132,8 +132,9 @@ def create_backup(root: Path, destination: Path, *, offline_confirmed: bool = Fa
     with worker_stopped(root):
         tmp = Path(tempfile.mkdtemp(prefix=".studio-backup-", dir=destination.parent))
         try:
-            with sqlite3.connect(root / DB) as source, sqlite3.connect(tmp / DB) as target:
-                source.backup(target)
+            with contextlib.closing(sqlite3.connect(root / DB)) as source:
+                with contextlib.closing(sqlite3.connect(tmp / DB)) as target:
+                    source.backup(target)
             records = []
             for source in [tmp / DB, *_files(root)]:
                 relative = Path(DB) if source == tmp / DB else source.relative_to(root)
