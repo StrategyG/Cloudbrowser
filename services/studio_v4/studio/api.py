@@ -13,6 +13,7 @@ from .settings import API_TOKEN, DATA_ROOT, MAX_UPLOAD_BYTES
 from .mesh import validate_png
 from .import_glb import MAX_GLB_UPLOAD_BYTES, validate_imported_glb
 from .manifest import Manifest, plan
+from .scene_intelligence import inspect_project, motion_preflight
 
 ROOT=Path(__file__).resolve().parent.parent
 app=FastAPI(title='Full Pipeline Studio Godot V4.1',version='4.1.0')
@@ -128,6 +129,21 @@ def get_project(pid:str):
  return {'id':pid,'name':p['name'],'state':p['state'],'sha256':p['sha256'],
          'metadata':json.loads(p['metadata']),'jobs':store.jobs(pid)}
 
+@app.get('/api/projects/{pid}/scene')
+def scene_info(pid:str):
+ p=project_or_404(pid)
+ try:
+  return inspect_project(pid,p)
+ except (ValueError, OSError) as exc:
+  raise HTTPException(409,'Scene inspection failed: '+str(exc)[:180]) from exc
+
+
+@app.get('/api/projects/{pid}/motion-qa')
+def motion_qa(pid:str):
+ scene=scene_info(pid)
+ return motion_preflight(scene)
+
+
 @app.get('/api/projects/{pid}/assets/{asset_type}')
 def fetch_asset(pid:str,asset_type:str):
  project_or_404(pid)
@@ -216,6 +232,25 @@ class PromptRequest(BaseModel):
  character: str='KIO'
  width: int=1280
  height: int=720
+
+@app.post('/api/projects/{pid}/plan-preview')
+def preview_scene(pid:str,request:PromptRequest):
+ # Does not write a manifest, create jobs, or alter existing approvals.
+ p=project_or_404(pid)
+ if p['state'] not in ('rig_approved','manifest_review','manifest_approved','completed'):
+  raise HTTPException(409,'Approve rig before previewing a production scene')
+ try:
+  candidate=plan(request.prompt,request.fps,request.character,request.width,request.height)
+ except (ValueError,TypeError) as exc:
+  raise HTTPException(422,str(exc)) from exc
+ current=DATA_ROOT/pid/'manifest.json'
+ before=None
+ if current.is_file():
+  before=hashlib.sha256(current.read_bytes()).hexdigest()
+ return {'project_id':pid,'preview':candidate.model_dump(),
+         'current_manifest_sha256':before,'writes_performed':False,
+         'quality_certified':False,'requires_owner_approval':True}
+
 
 @app.post('/api/projects/{pid}/prompt')
 def submit_prompt(pid:str,request:PromptRequest):
