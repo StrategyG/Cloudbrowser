@@ -1,5 +1,7 @@
 # Studio/Godot in Cloudbrowser 0.4
 
+**Animation Copilot v1:** The authenticated `/studio` page offers Chat / Plan / Edit / Agent prompts with four scoped A2A specialist roles. See [Copilot workflow and boundaries](COPILOT.md). Editing is limited to existing approved Studio operations, not unrestricted live changes to the isolated MorphGLB iframe.
+
 **Google Sites portal:** To open the authenticated MorphGLB editor from a Google Sites button, link to `https://your-cloudbrowser-domain.example/?open=studio`. The fixed same-origin deep link works after the owner logs in. Do not embed the authenticated Studio iframe; see [Google Sites editor integration](GOOGLE_SITES_EDITOR.md).
 
 ## External GLB → Studio/Godot (review-gated)
