@@ -1,5 +1,7 @@
 # Studio/Godot in Cloudbrowser 0.4
 
+**Google Sites portal:** To open the authenticated MorphGLB editor from a Google Sites button, link to `https://your-cloudbrowser-domain.example/?open=studio`. The fixed same-origin deep link works after the owner logs in. Do not embed the authenticated Studio iframe; see [Google Sites editor integration](GOOGLE_SITES_EDITOR.md).
+
 ## External GLB → Studio/Godot (review-gated)
 
 Cloudbrowser now accepts local **PNG or GLB** as the source artifact in
