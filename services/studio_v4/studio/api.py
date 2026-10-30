@@ -59,7 +59,7 @@ async def upload_asset(asset: UploadFile = File(...)):
  payload = await asset.read(limit + 1)
  if not payload or len(payload) > limit:
   raise HTTPException(413, 'File exceeds format size limit')
- if suffix == '.png' and payload[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+ if suffix == '.png' and payload[:8] != b'\x89PNG\r\n\x1a\n':
   raise HTTPException(415, 'Invalid PNG signature')
  if suffix == '.glb' and payload[:4] != b'glTF':
   raise HTTPException(415, 'Invalid GLB signature')
