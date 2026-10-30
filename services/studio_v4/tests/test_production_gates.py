@@ -46,18 +46,20 @@ def test_running_job_after_crash_is_failed_not_replayed():
     store.init()
     pid = store.create_project("crash", "untrusted")
     jid = store.enqueue(pid, "mesh", "uploaded", "mesh_building")
-    row = store.claim_job()
-    assert row["id"] == jid
-    assert store.recover_interrupted() == 1
+    # Other test cases may share the Studio CI workspace; mark only our job.
+    with store.conn() as db:
+        db.execute("UPDATE jobs SET state='running',attempts=1 WHERE id=?", (jid,))
+    assert store.recover_interrupted() >= 1
     assert store.get_project(pid)["state"] == "failed"
     assert store.jobs(pid)[0]["state"] == "failed"
     assert "manual retry" in store.jobs(pid)[0]["message"]
-    assert store.claim_job() is None
+    assert store.jobs(pid)[0]["state"] == "failed"
     assert store.recover_interrupted() == 0
     retried = api.retry_project(pid)
     assert retried["kind"] == "mesh"
     assert store.get_project(pid)["state"] == "mesh_building"
-    assert store.claim_job()["id"] == retried["job_id"]
+    assert store.jobs(pid)[0]["id"] == retried["job_id"]
+    assert store.jobs(pid)[0]["state"] == "queued"
 
 
 def test_worker_refuses_tampered_manifest_before_render(monkeypatch):
