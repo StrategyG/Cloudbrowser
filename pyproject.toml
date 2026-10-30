@@ -24,7 +24,7 @@ studio = ["numpy==2.5.4", "trimesh==4.12.2", "networkx==3.7", "python-multipart=
 cloudbrowser = "cloudbrowser.__main__:main"
 
 [tool.setuptools.package-data]
-cloudbrowser = ["static/*"]
+cloudbrowser = ["static/*", "morphglb/*"]
 
 [tool.setuptools.packages.find]
 include = ["cloudbrowser*"]

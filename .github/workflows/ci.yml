@@ -18,6 +18,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - run: python -m playwright install --with-deps chromium
       - run: python -m ruff check .
+      - run: node --check cloudbrowser/static/morphglb-bridge.js
+      - run: python scripts/check_morphglb_scripts.py
       - run: python -m pytest -q
         env:
           CLOUDBROWSER_TEST_BROWSER: '1'

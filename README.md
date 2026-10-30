@@ -3,6 +3,7 @@
 Browser dan agent produksi video di server, dikendalikan melalui **Telegram** dan dashboard privat.
 Studio/Godot kini terhubung dengan orchestrator dan editor A2A. PNG → mesh 2.5D → rig →
 manifest → render dijalankan melalui layanan Studio, dengan pemeriksaan dan persetujuan pemilik.
+**MorphGLB AI Studio v3.3.0** juga tersedia dalam panel Studio 3D terisolasi pada `/studio#morphglb`. Ekspor GLB/PNG/JSON dapat diimpor ke katalog aset Cloudbrowser; job A2A hanya tersedia melalui jalur PNG karena Studio/Godot belum menerima GLB eksternal. Lihat [STUDIO.md](docs/STUDIO.md) untuk batasan keamanan dan transfer aset.
 Mulai dengan `sh scripts/start_studio.sh`; lihat [STUDIO.md](docs/STUDIO.md) untuk konfigurasi,
 panel editor, batas kemampuan dan pengujian. Statusnya integrasi teruji komponen; produksi penuh
 dengan Blender/Godot pada server nyata masih memerlukan pengujian.

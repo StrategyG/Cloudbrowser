@@ -1,5 +1,57 @@
 # Studio/Godot in Cloudbrowser 0.4
 
+## MorphGLB AI Studio v3.3.0 (integrated editor)
+
+Cloudbrowser serves the exact standalone editor supplied by the project owner as
+`cloudbrowser/morphglb/MorphGLB_AI_Studio_v3.3.0.html`. Open the authenticated dashboard
+and select **Buka MorphGLB 3D**, or visit `/studio#morphglb`. The original
+`/studio` PNG → Studio/Godot/A2A controls are preserved.
+
+The editor is loaded **on demand**, inside an iframe. It supports its original local
+mesh/rig controls, WebGL preview and downloadable GLB/JSON/video where supported by
+the device. The app file bundles its renderer and dependencies; these are not fetched
+from third-party CDNs. Browser hardware/WebGL/WebCodecs compatibility varies.
+
+### Transfer to Cloudbrowser
+
+1. Export GLB, PNG or JSON in MorphGLB.
+2. Under the iframe, select the exported file and click **Impor aset ke Cloudbrowser**.
+3. The authenticated parent checks its extension, size and basic file signature, then
+   registers it using `PUT /api/artifacts` with a session CSRF token.
+4. For a **PNG only**, optionally select **Buat job A2A** and provide a prompt. The job
+   enters the existing A2A queue and requires the normal human approvals.
+
+Limits at the bridge: PNG 12 MiB, GLB 50 MiB, JSON 2 MiB (also bounded by the configured
+Cloudbrowser server upload limit). The original editor's optional local AI endpoints
+such as `/api/tripo` are **not** implemented by Cloudbrowser. GLB is registered as
+an artifact; the bundled Studio/Godot service **does not yet ingest external GLB**.
+Registration is not mesh validation, full 3D reconstruction or a completed video.
+There is deliberately no automatic API-key sharing or silent enqueue.
+
+### Isolation and security
+
+The 1.6 MB editor source is **outside public `/static`**, accessible only through
+the session-protected `GET /studio/morphglb` route. The iframe has
+`sandbox="allow-scripts allow-downloads"` and **not** `allow-same-origin`.
+The server also applies a CSP `sandbox` directive, including for direct visits.
+The sandbox has an opaque origin, no arbitrary network connections (blob/data fetches are permitted for local GLB textures), no top-level navigation,
+no forms, and no access to dashboard session/CSRF data. The parent handles explicit
+asset transfers only. Inline script/style is permitted **within that sandbox only**,
+while the ordinary Cloudbrowser dashboard retains its strict CSP.
+
+The original source is checked into this repository as supplied, retaining its
+dependency notices and licenses. Since this repository is public, that source is
+public too. Do not place API keys, tokens or private content inside vendored HTML.
+
+### Verification
+
+Run `python -m pytest -q tests/test_morphglb.py` and existing project tests.
+The test covers auth, CSP, embedding, public-static isolation and the bridge file.
+Full acceptance also requires manually opening the frame in a logged-in browser,
+importing a real PNG and GLB, then running a separate approved Studio/Godot job
+on a server with Blender, Godot and FFmpeg. No remote provider account or video
+render is validated by these unit tests.
+
 Cloudbrowser 0.4 retains the persistent Chromium browser, private dashboard, Telegram owner controls,
 model-created A2A specialists, project memory, action ledger and output verification from 0.3.
 Studio/Godot is a separate bundled service connected to the same orchestrator and editor role.

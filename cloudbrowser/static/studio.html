@@ -1,6 +1,24 @@
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cloudbrowser Studio</title><link rel="stylesheet" href="/static/style.css"><script src="/static/studio.js" defer></script></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cloudbrowser Studio</title><link rel="stylesheet" href="/static/style.css"><script src="/static/studio.js" defer></script><script src="/static/morphglb-bridge.js" defer></script></head>
 <body><main class="padded"><a href="/">← Workspace dan persetujuan</a><h1>Studio produksi</h1><p id="connection">Memeriksa koneksi…</p>
 <section class="panel padded"><h2>Mulai dari aset</h2><p>Unggah PNG transparan, lalu berikan arahan adegan. Mesh, rig dan rencana adegan menunggu pemeriksaan Anda sebelum render.</p><form id="create"><input id="png" type="file" accept="image/png" required><textarea id="prompt" maxlength="1200" required placeholder="KIO berjalan lalu melambaikan tangan, 5 detik"></textarea><button>Jalankan melalui tim agent</button></form><p>Hasil PNG berupa siluet 2.5D. Satu karakter, maksimal 15 detik per render.</p></section>
+<section class="panel padded"><h2>MorphGLB AI Studio 3D v3.3.0</h2>
+<p>Editor mesh, rig dan animasi 3D berjalan di dalam Cloudbrowser tanpa mengganti pipeline Studio/Godot. Editor dipisahkan dari sesi akun dan API agent untuk keamanan.</p>
+<button id="morphglb-open" type="button" aria-controls="morphglb-panel" aria-expanded="false">Buka editor 3D di workspace</button>
+<div id="morphglb-panel" hidden>
+  <p class="small muted">Mode lokal: export GLB/PNG/JSON melalui tombol editor; layanan AI opsional di dalam HTML belum terhubung langsung dengan API Cloudbrowser. File dapat ditransfer ke katalog di bawah.</p>
+  <iframe id="morphglb-frame" class="morphglb-frame" title="MorphGLB AI Studio — 3D editor" sandbox="allow-scripts allow-downloads" src="about:blank" referrerpolicy="no-referrer" loading="lazy"></iframe>
+  <h3>Kirim hasil editor ke Cloudbrowser</h3>
+  <p>Setelah ekspor, pilih file hasilnya. GLB didaftarkan sebagai aset, bukan otomatis di-render oleh Godot. Pipeline Studio/Godot saat ini menerima PNG.</p>
+  <form id="morphglb-transfer">
+    <label for="morphglb-file">File hasil ekspor (PNG maksimal 12 MB, GLB 50 MB, JSON 2 MB)</label>
+    <input id="morphglb-file" name="file" type="file" accept=".png,.glb,.json" required>
+    <label for="morphglb-prompt">Arahan untuk agent (bila PNG dikirim ke Studio)</label>
+    <textarea id="morphglb-prompt" maxlength="1200" placeholder="Contoh: KIO berjalan, berbalik dan melambaikan tangan selama 5 detik"></textarea>
+    <label><input id="morphglb-enqueue" type="checkbox"> Buat job A2A Studio/Godot setelah unggah PNG (butuh persetujuan pemilik)</label>
+    <button id="morphglb-upload" type="submit">Impor aset ke Cloudbrowser</button>
+  </form>
+  <p id="morphglb-transfer-result" role="status" aria-live="polite"></p>
+</div></section>
 <section class="panel padded"><h2>Tinjau proyek</h2><form id="inspect"><input id="project" aria-label="Studio project ID" placeholder="ID proyek Studio" pattern="[a-f0-9]{32}" required><button>Periksa QA dan pose</button></form><pre id="qa"></pre><div id="poses"></div><a id="manifest" hidden>Lihat manifest adegan</a><video id="video" controls hidden></video></section>
 <section class="panel padded"><h2>Lanjutkan pekerjaan</h2><p>Setujui tindakan melalui Workspace atau Telegram. Jika agent menunggu render, lanjutkan job setelah status proyek berubah menjadi completed. Masukkan ID proyek Studio ke arahan lanjutan.</p><pre id="result"></pre></section></main></body></html>
