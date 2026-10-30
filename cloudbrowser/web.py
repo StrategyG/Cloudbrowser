@@ -34,6 +34,9 @@ class Goal(Input):
 
 class NewGoal(Goal):
     project_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_-]{0,39}$")
+    # Supplied by the client for retry-safe POST. Omitted keys create new jobs.
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128,
+                                        pattern=r"^[A-Za-z0-9:_-]+$")
 
 
 class Project(Input):
@@ -267,7 +270,8 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
     async def create_job(body: NewGoal):
         if body.project_id and body.project_id.startswith("a2a-"):
             raise ValueError("The a2a- project prefix is reserved.")
-        job = agent.enqueue(body.text, project_id=body.project_id)
+        job = agent.enqueue(body.text, request_key=("web:" + body.idempotency_key) if body.idempotency_key else None,
+                            project_id=body.project_id)
         return {"id": job["id"], "status": job["status"]}
 
     @app.get("/api/jobs/{job_id}", dependencies=[Depends(sessions.require)])
