@@ -46,8 +46,8 @@ jobs:
         run: |
           mkdir -p /tmp/cloudbrowser-studio-smoke
           chmod 777 /tmp/cloudbrowser-studio-smoke
-          docker run --rm --shm-size=1g -e STUDIO_DATA_ROOT=/ci-output \\
-            -v /tmp/cloudbrowser-studio-smoke:/ci-output \\
+          docker run --rm --shm-size=1g -e STUDIO_DATA_ROOT=/ci-output \
+            -v /tmp/cloudbrowser-studio-smoke:/ci-output \
             --entrypoint python cloudbrowser-studio scripts/smoke_glb_render.py
       - name: Upload synthetic GLB pipeline acceptance evidence
         if: always()
