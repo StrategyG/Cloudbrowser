@@ -18,6 +18,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - run: python -m playwright install --with-deps chromium
       - run: python -m ruff check .
+      - name: Validate Codespaces CPU-only devcontainer
+        run: |
+          python -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/post-create.sh
       - run: node --check cloudbrowser/static/app.js
       - run: node --check cloudbrowser/static/morphglb-bridge.js
       - run: node --check cloudbrowser/static/copilot.js
