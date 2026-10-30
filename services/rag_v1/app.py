@@ -134,6 +134,15 @@ class Engine:
             raise ValueError("Document is empty or exceeds 12 MiB.")
         if hashlib.sha256(content).hexdigest() != request.sha256:
             raise ValueError("Source SHA-256 mismatch.")
+        # Repeated deliveries of the same source and model revision are no-ops.
+        with self.connect() as conn:
+            row = conn.execute("""SELECT sha256, model_revision, chunk_count
+                FROM rag_documents WHERE project_id=%s AND source_id=%s""",
+                (request.project_id, request.source_id)).fetchone()
+        if row is not None and row[0] == request.sha256 and row[1] == self.revision:
+            return {"project_id": request.project_id, "source_id": request.source_id,
+                    "sha256": request.sha256, "chunk_count": row[2],
+                    "model_revision": self.revision, "indexed": True, "unchanged": True}
         # Ingest happens before DB transaction: expensive CPU work cannot hold table locks.
         extracted = extract_text(request.filename, content)
         chunks = split_document(extracted)
