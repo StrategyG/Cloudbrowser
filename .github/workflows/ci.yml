@@ -44,7 +44,7 @@ jobs:
             --report /tmp/cpu-video-12min-acceptance.json
       - name: Upload CPU production acceptance evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cpu-video-acceptance
           path: |
@@ -79,7 +79,7 @@ jobs:
             --entrypoint python cloudbrowser-studio scripts/smoke_glb_render.py
       - name: Upload synthetic GLB pipeline acceptance evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: studio-glb-smoke-evidence
           path: |
