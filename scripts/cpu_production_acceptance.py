@@ -33,7 +33,7 @@ def save_png(artifacts: Artifacts, name: str, png: Image.Image) -> str:
     return artifact_id
 
 
-async def run(seconds: int, width: int, height: int, fps: int) -> dict:
+async def run(seconds: int, width: int, height: int, fps: int, repeat_cycles: int = 1) -> dict:
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise RuntimeError("ffmpeg and ffprobe must be installed.")
     began = time.perf_counter()
@@ -67,7 +67,7 @@ async def run(seconds: int, width: int, height: int, fps: int) -> dict:
                     y=height // 2, pose_hold_frames=3,
                 )
                 shot_ids.append(shot["artifact"]["id"])
-            episode = await assemble_cpu_episode(media, shot_ids=shot_ids)
+            episode = await assemble_cpu_episode(media, shot_ids=shot_ids * repeat_cycles)
             output_path = artifacts.path(episode["artifact"]["id"])
             await media._run(
                 "ffmpeg", "-hide_banner", "-v", "error", "-xerror",
@@ -78,7 +78,7 @@ async def run(seconds: int, width: int, height: int, fps: int) -> dict:
             probe = await media.probe(output_path)
             elapsed = time.perf_counter() - began
             actual = float(probe["format"]["duration"])
-            if abs(actual - 2 * seconds) > 0.15:
+            if abs(actual - 2 * seconds * repeat_cycles) > max(0.15, repeat_cycles * 0.04):
                 raise RuntimeError("Final MP4 duration outside expected bounds.")
             child = resource.getrusage(resource.RUSAGE_CHILDREN)
             return {
@@ -89,7 +89,7 @@ async def run(seconds: int, width: int, height: int, fps: int) -> dict:
                     "cpus_visible": os.cpu_count(),
                     "width": width, "height": height, "fps": fps,
                 },
-                "shot_count": len(shot_ids),
+                "shot_count": len(shot_ids) * repeat_cycles,
                 "output_duration_seconds": actual,
                 "elapsed_wall_seconds": round(elapsed, 2),
                 "peak_child_rss_kib": child.ru_maxrss,
@@ -107,9 +107,12 @@ def main() -> None:
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=360)
     parser.add_argument("--fps", type=int, default=24, choices=(24, 25, 30, 60))
+    parser.add_argument("--repeat-cycles", type=int, default=1, choices=range(1, 61),
+                        help="Repeat the two rendered shots for a long-episode stream-copy test")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    report = asyncio.run(run(args.shot_seconds, args.width, args.height, args.fps))
+    report = asyncio.run(run(args.shot_seconds, args.width, args.height, args.fps,
+                             args.repeat_cycles))
     output = json.dumps(report, indent=2)
     print(output)
     if args.report:
