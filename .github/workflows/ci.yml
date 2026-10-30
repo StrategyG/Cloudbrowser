@@ -28,6 +28,7 @@ jobs:
       - run: node --check cloudbrowser/static/app.js
       - run: node --check cloudbrowser/static/morphglb-bridge.js
       - run: node --check cloudbrowser/static/copilot.js
+      - run: node --check cloudbrowser/static/studio.js
       - run: python scripts/check_morphglb_scripts.py
       - run: python -m pytest -q
         env:
@@ -77,6 +78,11 @@ jobs:
           docker run --rm --shm-size=1g -e STUDIO_DATA_ROOT=/ci-output \
             -v /tmp/cloudbrowser-studio-smoke:/ci-output \
             --entrypoint python cloudbrowser-studio scripts/smoke_glb_render.py
+      - name: Real generated PNG draft -> Blender rig -> Godot MP4 acceptance smoke
+        run: |
+          docker run --rm --shm-size=1g -e STUDIO_DATA_ROOT=/ci-output \
+            -v /tmp/cloudbrowser-studio-smoke:/ci-output \
+            --entrypoint python cloudbrowser-studio scripts/smoke_generated_png_video.py
       - name: Upload synthetic GLB pipeline acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -86,6 +92,8 @@ jobs:
             /tmp/cloudbrowser-studio-smoke/smoke_output.mp4
             /tmp/cloudbrowser-studio-smoke/smoke_preview.png
             /tmp/cloudbrowser-studio-smoke/smoke_report.json
+            /tmp/cloudbrowser-studio-smoke/generated_png_output.mp4
+            /tmp/cloudbrowser-studio-smoke/generated_png_report.json
           if-no-files-found: warn
           retention-days: 7
   knowledge:
