@@ -262,7 +262,7 @@ func _process(_delta: float) -> void:
             pose_bone("UpperArm_R", Vector3.RIGHT, 0.32 * sin(phase))
         "wave":
             pose_bone("UpperArm_R", Vector3.FORWARD, -0.9)
-            pose_bone("Forearm_R", Vector3.RIGHT, 0.25 * sin(phase))
+            pose_bone("LowerArm_R", Vector3.RIGHT, 0.25 * sin(phase))
         "jump":
             var progress: float = float(local_index) / float(maxi(1, frame_count - 1))
             actor.position.y += 0.45 * maxf(0.0, sin(PI * progress))
