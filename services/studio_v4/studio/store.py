@@ -7,7 +7,7 @@ from .settings import DATABASE, DATA_ROOT
 
 STATES = ('uploaded','mesh_building','mesh_review','mesh_approved','rig_building','rig_review','rig_approved','manifest_review','manifest_approved','rendering','completed','failed')
 TRANSITIONS = {
- 'uploaded': {'mesh_building'},
+ 'uploaded': {'mesh_building','mesh_review'},
  'mesh_building': {'mesh_review','failed'},
  'mesh_review': {'mesh_approved','mesh_building'},
  'mesh_approved': {'rig_building'},
