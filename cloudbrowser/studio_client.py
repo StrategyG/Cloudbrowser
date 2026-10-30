@@ -79,9 +79,14 @@ class StudioClient:
     async def execute(self, name, args):
         if name == "studio_create_project":
             path = self.artifacts.path(args["artifact_id"])
-            if path.suffix != ".png" or path.stat().st_size > 12 * 1024 * 1024:
-                raise ValueError("Studio requires a transparent PNG up to 12 MB.")
-            return await self.request("POST", "/api/projects", files={"asset": ("asset.png", path.read_bytes(), "image/png")})
+            suffix = path.suffix.casefold()
+            max_bytes = {".png": 12 * 1024 * 1024, ".glb": 50 * 1024 * 1024}
+            if suffix not in max_bytes or not 0 < path.stat().st_size <= max_bytes[suffix]:
+                raise ValueError("Studio requires PNG up to 12 MiB or GLB up to 50 MiB.")
+            media_type = "image/png" if suffix == ".png" else "model/gltf-binary"
+            return await self.request("POST", "/api/projects", files={
+                "asset": ("asset" + suffix, path.read_bytes(), media_type)
+            })
         route = self.route(args["project_id"])
         if name == "studio_get_project":
             return await self.request("GET", route)
