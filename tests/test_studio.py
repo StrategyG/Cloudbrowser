@@ -158,3 +158,30 @@ def test_studio_dashboard_requires_owner_and_hides_service_token(settings, tmp_p
         assert state.json()["studio_enabled"]
         assert settings.studio_api_token not in state.text
         assert client.get(f"/api/studio/projects/{PID}/assets/invalid").status_code == 404
+
+
+async def test_studio_client_hands_off_glb_with_owner_approval(settings, tmp_path):
+    store = Store(tmp_path)
+    try:
+        artifacts = Artifacts(tmp_path, store)
+        aid, path, filename = artifacts.allocate("character.glb")
+        path.write_bytes(b"glTF" + b"x" * 32)
+        artifacts.register(aid, path, filename)
+        requests = []
+
+        def backend(request):
+            requests.append(request)
+            return httpx.Response(200, json={"id": PID, "state": "mesh_review", "source_type": "glb"})
+
+        studio = StudioClient(configure(settings), artifacts, transport=httpx.MockTransport(backend))
+        assert action_policy(settings, "auto", TOOL_MAP["studio_create_project"]).approval_required
+        result = await studio.execute("studio_create_project", {"artifact_id": aid})
+        assert result["state"] == "mesh_review"
+        assert len(requests) == 1
+        assert requests[0].method == "POST"
+        assert requests[0].url.path == "/api/projects"
+        assert b"filename=\"asset.glb\"" in requests[0].content
+        assert b"model/gltf-binary" in requests[0].content
+        assert requests[0].headers["x-studio-token"] == settings.studio_api_token
+    finally:
+        store.close()

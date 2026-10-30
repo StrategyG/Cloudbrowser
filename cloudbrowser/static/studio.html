@@ -9,13 +9,13 @@
   <p class="small muted">Mode lokal: export GLB/PNG/JSON melalui tombol editor; layanan AI opsional di dalam HTML belum terhubung langsung dengan API Cloudbrowser. File dapat ditransfer ke katalog di bawah.</p>
   <iframe id="morphglb-frame" class="morphglb-frame" title="MorphGLB AI Studio — 3D editor" sandbox="allow-scripts allow-downloads" src="about:blank" referrerpolicy="no-referrer" loading="lazy"></iframe>
   <h3>Kirim hasil editor ke Cloudbrowser</h3>
-  <p>Setelah ekspor, pilih file hasilnya. GLB didaftarkan sebagai aset, bukan otomatis di-render oleh Godot. Pipeline Studio/Godot saat ini menerima PNG.</p>
+  <p>Setelah ekspor, pilih file hasilnya. GLB tervalidasi dapat memasuki pipeline Studio/Godot melalui persetujuan mesh, rig dan manifest. GLB rigged harus memiliki bone yang kompatibel; kualitas visual tetap perlu pemeriksaan manusia.</p>
   <form id="morphglb-transfer">
     <label for="morphglb-file">File hasil ekspor (PNG maksimal 12 MB, GLB 50 MB, JSON 2 MB)</label>
     <input id="morphglb-file" name="file" type="file" accept=".png,.glb,.json" required>
     <label for="morphglb-prompt">Arahan untuk agent (bila PNG dikirim ke Studio)</label>
     <textarea id="morphglb-prompt" maxlength="1200" placeholder="Contoh: KIO berjalan, berbalik dan melambaikan tangan selama 5 detik"></textarea>
-    <label><input id="morphglb-enqueue" type="checkbox"> Buat job A2A Studio/Godot setelah unggah PNG (butuh persetujuan pemilik)</label>
+    <label><input id="morphglb-enqueue" type="checkbox"> Buat job A2A Studio/Godot setelah unggah PNG atau GLB (butuh persetujuan pemilik)</label>
     <button id="morphglb-upload" type="submit">Impor aset ke Cloudbrowser</button>
   </form>
   <p id="morphglb-transfer-result" role="status" aria-live="polite"></p>

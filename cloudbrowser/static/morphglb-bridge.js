@@ -60,7 +60,7 @@
       const ext = await validate(file);
       const enqueue = $("morphglb-enqueue").checked;
       const prompt = $("morphglb-prompt").value.trim();
-      if (enqueue && ext !== "png") throw new Error("Pipeline Studio/Godot saat ini hanya menerima PNG; GLB disimpan sebagai aset.");
+      if (enqueue && !["png", "glb"].includes(ext)) throw new Error("Pipeline Studio/Godot menerima PNG atau GLB; JSON hanya disimpan sebagai aset.");
       if (enqueue && !prompt) throw new Error("Isi arahan gerakan untuk pipeline Studio/Godot.");
       show("Mengunggah ke katalog aset Cloudbrowser…");
       const artifact = await request("/api/artifacts?filename=" + encodeURIComponent(file.name), {
@@ -73,9 +73,13 @@
         show("Aset tersimpan: " + artifact.id + ". Studio/Godot belum dikonfigurasi; tidak membuat job.");
         return;
       }
-      const text = "Gunakan Studio/Godot untuk membuat animasi dari PNG artifact " + artifact.id
-        + ". Arahan: " + prompt
-        + ". Buat proyek Studio melalui workflow A2A; periksa QA mesh dan rig, minta persetujuan untuk mesh, rig dan manifest, kemudian render dan verifikasi hasil. Jangan menganggap proses selesai sebelum MP4 disetujui.";
+      const kind = ext === "glb" ? "GLB 3D" : "PNG 2.5D";
+      const stageInstructions = ext === "glb"
+        ? " Setelah studio_create_project, GLB yang lolos validasi sudah berada pada mesh_review: JANGAN jalankan studio_start_stage(mesh). Periksa hasil QA lalu minta persetujuan mesh sebelum memulai rig. Jika GLB memiliki skin, pertahankan skin dan wajib tinjau empat pose."
+        : " Setelah studio_create_project, jalankan tahap mesh dan periksa QA sebelum meminta persetujuan.";
+      const text = "Gunakan Studio/Godot untuk membuat animasi dari " + kind + " artifact " + artifact.id
+        + ". Arahan: " + prompt + "." + stageInstructions
+        + " Gunakan workflow A2A, minta persetujuan pemilik untuk mesh, rig dan manifest. Render hanya sesudah semua persetujuan, lalu impor dan verifikasi MP4. Jangan menganggap tugas selesai sebelum QC video.";
       const job = await request("/api/jobs", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text })
       });

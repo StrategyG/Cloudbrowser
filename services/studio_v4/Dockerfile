@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 STUDIO_DATA_ROOT=/app/workspace
     XVFB_BIN=xvfb-run LIBGL_ALWAYS_SOFTWARE=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl unzip blender ffmpeg xvfb xauth \
-    libgl1 libgl1-mesa-dri libx11-6 libxcursor1 libxrandr2 libxi6 libasound2t64 \
+    libgl1 libegl1 libgl1-mesa-dri libx11-6 libxcursor1 libxrandr2 libxi6 libasound2t64 \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL --retry 3 --max-time 180 \
       "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" \

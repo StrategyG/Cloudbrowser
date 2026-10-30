@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 import shutil
+import tempfile
 from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 from . import store
 from .settings import API_TOKEN, DATA_ROOT, MAX_UPLOAD_BYTES
 from .mesh import validate_png
+from .import_glb import MAX_GLB_UPLOAD_BYTES, validate_imported_glb
 from .manifest import Manifest, plan
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -47,24 +49,78 @@ def project_or_404(pid):
 
 def bad_transition(e):raise HTTPException(409,str(e))
 
+def check_source_integrity(pid, project):
+ metadata = json.loads(project['metadata'])
+ ext = 'glb' if metadata.get('source', {}).get('type') == 'glb' else 'png'
+ source = DATA_ROOT / pid / ('mesh.glb' if ext == 'glb' else 'source.png')
+ if not source.is_file():
+  raise HTTPException(409, 'Source file is missing')
+ with source.open('rb') as handle:
+  digest = hashlib.file_digest(handle, 'sha256').hexdigest()
+ if digest != project['sha256']:
+  raise HTTPException(409, 'Source changed since validation; create a new project')
+
+
+def check_rig_integrity(pid, metadata):
+ expected = metadata.get('rig_qa', {}).get('sha256')
+ if not expected:
+  return
+ path = DATA_ROOT / pid / 'rigged.glb'
+ if not path.is_file():
+  raise HTTPException(409, 'Approved rig is missing')
+ with path.open('rb') as handle:
+  current = hashlib.file_digest(handle, 'sha256').hexdigest()
+ if current != expected:
+  raise HTTPException(409, 'Rig changed after QA; reimport and review')
+
+
+
 @app.post('/api/projects')
-async def upload_asset(asset:UploadFile=File(...)):
- name=asset.filename or 'asset.png'
- if not name.casefold().endswith('.png'):raise HTTPException(415,'PNG file required')
- payload=await asset.read(MAX_UPLOAD_BYTES+1)
- if not payload or len(payload)>MAX_UPLOAD_BYTES:raise HTTPException(413,'File exceeds 12 MB')
- if payload[:8]!=b'\x89PNG\r\n\x1a\n':raise HTTPException(415,'Invalid PNG signature')
- pid=store.create_project(Path(name).stem[:70],hashlib.sha256(payload).hexdigest())
- folder=DATA_ROOT/pid
+async def upload_asset(asset: UploadFile = File(...)):
+ name = asset.filename or 'asset.png'
+ suffix = Path(name).suffix.casefold()
+ if suffix not in ('.png', '.glb'):
+  raise HTTPException(415, 'PNG or GLB required')
+ limit = MAX_GLB_UPLOAD_BYTES if suffix == '.glb' else MAX_UPLOAD_BYTES
+ payload = await asset.read(limit + 1)
+ if not payload or len(payload) > limit:
+  raise HTTPException(413, 'File exceeds format size limit')
+ if suffix == '.png' and payload[:8] != b'\x89PNG\r\n\x1a\n':
+  raise HTTPException(415, 'Invalid PNG signature')
+ if suffix == '.glb' and payload[:4] != b'glTF':
+  raise HTTPException(415, 'Invalid GLB signature')
+ # Validate untrusted GLB before registering a project; no stale project on rejection.
+ if suffix == '.glb':
+  try:
+   with tempfile.TemporaryDirectory(dir=DATA_ROOT, prefix='glb-check-') as temp:
+    candidate = Path(temp) / 'candidate.glb'
+    candidate.write_bytes(payload)
+    mesh_qa = validate_imported_glb(candidate)
+  except Exception as exc:
+   raise HTTPException(422, 'GLB QA rejected: ' + str(exc)[:300]) from exc
+ pid = store.create_project(Path(name).stem[:70], hashlib.sha256(payload).hexdigest())
+ folder = DATA_ROOT / pid
  try:
-  src=folder/'source.png';src.write_bytes(payload)
-  rgba=validate_png(src)
-  store.update_metadata(pid,source={'width':rgba.width,'height':rgba.height,'sha256':hashlib.sha256(payload).hexdigest()})
+  if suffix == '.png':
+   src = folder / 'source.png'
+   src.write_bytes(payload)
+   rgba = validate_png(src)
+   store.update_metadata(pid, source={'type': 'png', 'width': rgba.width,
+                                      'height': rgba.height, 'sha256': hashlib.sha256(payload).hexdigest()})
+  else:
+   (folder / 'mesh.glb').write_bytes(payload)
+   (folder / 'mesh_qa.json').write_text(json.dumps(mesh_qa, indent=2))
+   store.update_metadata(pid, source={'type': 'glb', 'sha256': hashlib.sha256(payload).hexdigest()},
+                         mesh_qa=mesh_qa)
+   # Imported mesh is READY FOR HUMAN REVIEW, not auto-approved or auto-rigged.
+   store.change_state(pid, 'uploaded', 'mesh_review')
  except Exception as exc:
-  with store.conn() as c:c.execute('DELETE FROM projects WHERE id=?',(pid,))
-  shutil.rmtree(folder,ignore_errors=True)
-  raise HTTPException(422,str(exc))
- return {'id':pid,'state':'uploaded'}
+  with store.conn() as db:
+   db.execute('DELETE FROM projects WHERE id=?', (pid,))
+  shutil.rmtree(folder, ignore_errors=True)
+  raise HTTPException(422, str(exc)) from exc
+ return {'id': pid, 'state': 'mesh_review' if suffix == '.glb' else 'uploaded',
+         'source_type': suffix[1:] }
 
 @app.get('/api/projects/{pid}')
 def get_project(pid:str):
@@ -91,6 +147,8 @@ def fetch_asset(pid:str,asset_type:str):
 @app.post('/api/projects/{pid}/mesh')
 def build_mesh(pid:str):
  p=project_or_404(pid)
+ if json.loads(p['metadata']).get('source', {}).get('type') == 'glb':
+  raise HTTPException(409, 'Imported GLB mesh already awaits review; rebuild is not available')
  if p['state'] not in ('uploaded','mesh_review'):raise HTTPException(409,'Mesh stage unavailable')
  try:jid=store.enqueue(pid,'mesh',p['state'],'mesh_building')
  except ValueError as exc:bad_transition(exc)
@@ -110,11 +168,13 @@ def approve(pid:str,item:Approval):
  if not expected:raise HTTPException(422,'Unknown stage')
  metadata=json.loads(p['metadata'])
  if item.stage=='mesh':
+  check_source_integrity(pid, p)
   qa=metadata.get('mesh_qa',{})
   if not (qa.get('watertight') and qa.get('winding_consistent') and qa.get('connected_components')==1
           and qa.get('gltf',{}).get('valid_structure')):
    raise HTTPException(409,'Mesh QA gate failed')
  if item.stage=='rig':
+  check_rig_integrity(pid, metadata)
   qa=metadata.get('rig_qa',{})
   if not (qa.get('unweighted_vertices')==0 and qa.get('gltf',{}).get('skins',0)>0 and qa.get('gltf',{}).get('skinned_primitives',0)>0
           and len(qa.get('pose_previews',[]))==4):
@@ -144,6 +204,7 @@ def retry_project(pid:str):
 @app.post('/api/projects/{pid}/rig')
 def build_rig(pid:str):
  p=project_or_404(pid)
+ check_source_integrity(pid, p)
  if p['state'] not in ('mesh_approved','rig_review'):raise HTTPException(409,'Rig stage unavailable')
  try:jid=store.enqueue(pid,'rig',p['state'],'rig_building')
  except ValueError as exc:bad_transition(exc)
@@ -201,6 +262,7 @@ def structured_manifest(pid:str,manifest:Manifest):
 @app.post('/api/projects/{pid}/render')
 def render_video(pid:str):
  p=project_or_404(pid)
+ check_rig_integrity(pid, json.loads(p['metadata']))
  if p['state']!='manifest_approved':raise HTTPException(409,'Approve manifest before rendering')
  try:jid=store.enqueue(pid,'render','manifest_approved','rendering')
  except ValueError as exc:bad_transition(exc)

@@ -49,7 +49,7 @@ Prefer scripts, scene plans, prompts and downloadable project assets as intermed
 Use the websites' visible controls for generation/export. Do not invent official Flow or CapCut APIs.
 Use DOM tools for ordinary forms. Coordinate/drag tools require a current screenshot and vision.
 Use compose_video for local clip assembly, render_storyboard for a clearly labeled scene-card animatic.
-If Studio is configured, use studio tools for PNG/mesh/rig/Godot production. These are separate from website operations.
+If Studio is configured, use studio tools for PNG or external GLB to mesh/rig/Godot production. PNG begins in uploaded state and needs studio_start_stage(mesh); validated GLB begins directly at mesh_review and must receive owner mesh approval before rig. These are separate from website operations.
 Split mesh, rig, manifest and final video into workflow steps. Poll Studio state; never queue a stage twice to wait.
 Studio approvals require the OWNER to inspect real QA, rig pose previews and manifest in /studio or the Studio editor.
 Import the completed MP4 using studio_import_asset before video review. Intermediate GLB/PNG are not final videos.
