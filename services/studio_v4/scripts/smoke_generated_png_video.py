@@ -1,7 +1,8 @@
 """CI evidence: owner-reviewed generated PNG -> volumetric GLB -> Blender rig -> Godot MP4.
 
 A synthetic CPU-only render smoke, NOT proof of accurate reconstruction or natural motion.
-"""h
+"""
+#"hx
 import io
 import json
 import shutil
