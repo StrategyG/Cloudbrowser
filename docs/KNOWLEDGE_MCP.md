@@ -77,6 +77,8 @@ This snippet shows only the new field; keep other required config fields. `api_t
 - `python -m pytest -q tests/test_knowledge_mcp.py tests/test_rag_service_contract.py`: MCP 2.x in-process protocol, discovery, schema, allowlist, approval and RAG contracts.
 - `python scripts/smoke_pgvector.py` with `RAG_TEST_DB_URL`: actual PostgreSQL/pgvector 384-dimensional vector retrieval and cross-project exclusion.
 - `docker compose -f compose.yaml -f compose.knowledge.yaml --profile knowledge config -q`: isolated Compose configuration.
+- `python -m pytest -q tests/test_mcp_http_transport.py`: boots a real local MCP SDK HTTP server in a separate process, checks authentication, discovery, execution and denial of non-allowlisted tools; this does **not** certify any third-party MCP deployment.
+- `tests/test_rag_service_contract.py`: tests that authenticated `/readyz` returns 503 when the live database check fails, without exposing the database error. Docker RAG health now uses authenticated readiness rather than liveness.
 - The repository GitHub Actions workflow runs these tests plus existing application, Studio and Chromium smoke suites.
 
 **Not yet verified:** deployment with a real offline embedding-model directory and full Docling PDF/OCR → embedding → database → Supervisor query against a running server. This requires provisioned model weights and memory plus live operational credentials. No Dropbox mining, RAG_Cerdas cross-repository integration, automated external connector approval, or generic MCP write tool is implemented here.
