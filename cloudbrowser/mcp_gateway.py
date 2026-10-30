@@ -81,15 +81,28 @@ class MCPGateway:
         server = self._allowed(server_id, tool_name)
         if not isinstance(arguments, dict) or len(json.dumps(arguments)) > 8000:
             raise ValueError("MCP arguments must be a JSON object of at most 8000 characters.")
+        # Do not raise a local validation error inside the SDK AnyIO task group:
+        # its context manager can wrap it in ExceptionGroup.
+        error = ""
+        result = None
         async with asyncio.timeout(35):
             async with self._connect(server) as client:
                 discovered = await self._tools(client)
                 match = next((tool for tool in discovered if tool.name == tool_name), None)
                 if match is None:
-                    raise ValueError("Approved MCP tool not advertised by connected server.")
-                validate(instance=arguments, schema=match.input_schema)
-                result = await client.call_tool(tool_name, arguments)
-        if result.is_error:
+                    error = "Approved MCP tool not advertised by connected server."
+                else:
+                    from jsonschema import ValidationError as SchemaValidationError
+
+                    try:
+                        validate(instance=arguments, schema=match.input_schema)
+                    except SchemaValidationError:
+                        error = "MCP tool arguments failed schema validation."
+                    if not error:
+                        result = await client.call_tool(tool_name, arguments)
+        if error:
+            raise ValueError(error)
+        if result is None or result.is_error:
             raise ValueError("MCP tool reported an execution error.")
         # MCP output is untrusted text/data. Cap it before giving it to the LLM.
         payload = result.structured_content
