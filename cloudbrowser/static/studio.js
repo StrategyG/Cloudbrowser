@@ -25,6 +25,7 @@ el("inspect").onsubmit = async event => {
     if (!/^[a-f0-9]{32}$/.test(id)) throw Error("ID proyek tidak valid.");
     const base = "/api/studio/projects/" + id;
     const info = await api(base); el("qa").textContent = JSON.stringify(info, null, 2);
+    el("copilot-studio").value = id;
     el("poses").replaceChildren();
     if (info.metadata?.rig_qa) for (const pose of ["rest", "arms", "legs", "combo"]) {
       const image = document.createElement("img"); image.src = base + "/assets/rig_" + pose; image.alt = "Rig pose " + pose; image.width = 280; el("poses").append(image);
