@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import tempfile
+import shutil
 from pathlib import Path
 
 from .cpu_shot import _digest
@@ -91,6 +92,15 @@ async def assemble_cpu_episode(
         if subtitle.suffix.lower() != ".srt":
             raise ValueError("Episode subtitles must be registered SRT.")
 
+    # Stream-copy cannot shrink the video payload; fail early instead of filling
+    # Codespaces disk or generating an output larger than the artifact cap.
+    estimated_bytes = sum(path.stat().st_size for path in paths)
+    if audio:
+        estimated_bytes += int(total * 16_000)  # AAC 128 kbps estimate
+    if estimated_bytes > media.artifacts.max_bytes * 0.95:
+        raise ValueError("Expected episode exceeds the configured output artifact size limit.")
+    if shutil.disk_usage(media.artifacts.root).free < estimated_bytes * 1.15:
+        raise ValueError("Not enough free disk space to safely assemble this episode.")
     inputs = paths + [item for item in (audio, subtitle) if item is not None]
     original_hashes = {path: _digest(path) for path in inputs}
     payload = {
