@@ -201,6 +201,9 @@ def approve(pid:str,item:Approval):
   manifest=Manifest.model_validate_json(path.read_text())
   if manifest.approval!='pending':raise HTTPException(409,'Manifest needs pending approval')
   path.write_text(manifest.model_copy(update={'approval':'approved'}).model_dump_json(indent=2))
+  with path.open('rb') as approved_manifest:
+   approved_digest=hashlib.file_digest(approved_manifest,'sha256').hexdigest()
+  store.update_metadata(pid,manifest_approved_sha256=approved_digest)
  try:store.change_state(pid,*expected)
  except ValueError as exc:bad_transition(exc)
  return {'state':expected[1],'approval_recorded':True}
@@ -299,6 +302,17 @@ def render_video(pid:str):
  p=project_or_404(pid)
  check_rig_integrity(pid, json.loads(p['metadata']))
  if p['state']!='manifest_approved':raise HTTPException(409,'Approve manifest before rendering')
+ path=DATA_ROOT/pid/'manifest.json'
+ expected=json.loads(p['metadata']).get('manifest_approved_sha256')
+ if not expected or not path.is_file():
+  raise HTTPException(409,'Missing approved manifest checksum')
+ with path.open('rb') as current_manifest:
+  actual=hashlib.file_digest(current_manifest,'sha256').hexdigest()
+ if actual!=expected:
+  raise HTTPException(409,'Manifest modified since approval; review and approve again')
+ report=motion_preflight(scene_info(pid))
+ if report['blocked']:
+  raise HTTPException(409,'Motion preflight failed: '+json.dumps(report['findings'])[:400])
  try:jid=store.enqueue(pid,'render','manifest_approved','rendering')
  except ValueError as exc:bad_transition(exc)
  return {'job_id':jid,'state':'rendering'}
