@@ -8,7 +8,6 @@ from cloudbrowser.crew import PROFILES
 from cloudbrowser.tools import TOOL_MAP
 from cloudbrowser.web import create_app
 
-
 PID = "a" * 32
 
 
