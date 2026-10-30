@@ -1,5 +1,6 @@
 """Godot fixed-FPS movie renderer. No shell evaluation or arbitrary filesystem paths."""
 import json, os, shutil, subprocess, tempfile
+from fractions import Fraction
 from pathlib import Path
 from .core import ROOT, get_project, transition
 
@@ -53,6 +54,10 @@ def render(pid):
             input_info=probe(movie)
             if (int(input_info.get('width',0)),int(input_info.get('height',0))) != (data['width'],data['height']):
                 raise RuntimeError('Incorrect Godot video resolution')
+            if abs(float(Fraction(input_info.get('r_frame_rate','0/1')))-data['fps'])>0.01:
+                raise RuntimeError('Incorrect Godot frame rate')
+            if input_info.get('nb_frames','N/A') not in ('N/A',str(frames)):
+                raise RuntimeError('Incorrect Godot frame count')
             tmp=workspace/'output.mp4'
             run([FFMPEG,'-hide_banner','-loglevel','error','-y','-i',str(movie),
                  '-an','-c:v','libx264','-pix_fmt','yuv420p','-r',str(data['fps']),
@@ -60,6 +65,8 @@ def render(pid):
             info=probe(tmp)
             if info.get('codec_name')!='h264' or (int(info.get('width',0)),int(info.get('height',0))) != (data['width'],data['height']):
                 raise RuntimeError('MP4 failed codec or dimension validation')
+            if abs(float(Fraction(info.get('r_frame_rate','0/1')))-data['fps'])>0.01:
+                raise RuntimeError('MP4 frame rate mismatch')
             if info.get('nb_frames','N/A') not in ('N/A',str(frames)):
                 raise RuntimeError('MP4 frame count mismatch')
             os.replace(tmp,directory/'output.mp4')
