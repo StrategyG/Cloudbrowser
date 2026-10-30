@@ -6,6 +6,7 @@ This validates executable components, not correctness of natural locomotion or a
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -96,6 +97,16 @@ def main():
         spread = max(ImageStat.Stat(frame.convert("RGB")).stddev)
     if spread < 2.0:
         raise RuntimeError("Output video appears nearly uniform or blank")
+    shutil.copyfile(mp4, DATA_ROOT / "smoke_output.mp4")
+    shutil.copyfile(still, DATA_ROOT / "smoke_preview.png")
+    (DATA_ROOT / "smoke_report.json").write_text(json.dumps({
+        "synthetic_test_only": True,
+        "initial_project": initial,
+        "skinned_project": second,
+        "rig_qa": store.read_metadata(second)["rig_qa"],
+        "render_qa": qa,
+        "frame_color_spread": spread,
+    }, indent=2))
     print("PASS real imported GLB -> compatible rig -> Godot -> MP4",
           json.dumps({"bytes": mp4.stat().st_size, "frame_spread": spread}), flush=True)
 
