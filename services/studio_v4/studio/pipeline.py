@@ -36,12 +36,12 @@ def run_job(job):
    (folder/'rigged.glb').unlink(missing_ok=True)
    if existing_skin:
     # Review existing weights/bone names; do not silently destroy an authored rig.
-    run([BLENDER,'-b','--python',str(ROOT/'workers'/'review_existing_rig.py'),'--',
+    run([BLENDER,'-b','--python-exit-code','1','--python',str(ROOT/'workers'/'review_existing_rig.py'),'--',
          str(folder/'mesh.glb'),str(folder/'rig_qa.json')],900)
     import shutil
     shutil.copyfile(folder/'mesh.glb',folder/'rigged.glb')
    else:
-    run([BLENDER,'-b','--python',str(ROOT/'workers'/'rig_asset.py'),'--',
+    run([BLENDER,'-b','--python-exit-code','1','--python',str(ROOT/'workers'/'rig_asset.py'),'--',
          str(folder/'mesh.glb'),str(folder/'rigged.glb'),str(folder/'rig_qa.json')],900)
    qa=json.loads((folder/'rig_qa.json').read_text())
    qa['gltf']=inspect(folder/'rigged.glb',require_skin=True)
