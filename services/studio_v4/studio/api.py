@@ -49,6 +49,32 @@ def project_or_404(pid):
 
 def bad_transition(e):raise HTTPException(409,str(e))
 
+def check_source_integrity(pid, project):
+ metadata = json.loads(project['metadata'])
+ ext = 'glb' if metadata.get('source', {}).get('type') == 'glb' else 'png'
+ source = DATA_ROOT / pid / ('mesh.glb' if ext == 'glb' else 'source.png')
+ if not source.is_file():
+  raise HTTPException(409, 'Source file is missing')
+ with source.open('rb') as handle:
+  digest = hashlib.file_digest(handle, 'sha256').hexdigest()
+ if digest != project['sha256']:
+  raise HTTPException(409, 'Source changed since validation; create a new project')
+
+
+def check_rig_integrity(pid, metadata):
+ expected = metadata.get('rig_qa', {}).get('sha256')
+ if not expected:
+  return
+ path = DATA_ROOT / pid / 'rigged.glb'
+ if not path.is_file():
+  raise HTTPException(409, 'Approved rig is missing')
+ with path.open('rb') as handle:
+  current = hashlib.file_digest(handle, 'sha256').hexdigest()
+ if current != expected:
+  raise HTTPException(409, 'Rig changed after QA; reimport and review')
+
+
+
 @app.post('/api/projects')
 async def upload_asset(asset: UploadFile = File(...)):
  name = asset.filename or 'asset.png'
@@ -142,11 +168,13 @@ def approve(pid:str,item:Approval):
  if not expected:raise HTTPException(422,'Unknown stage')
  metadata=json.loads(p['metadata'])
  if item.stage=='mesh':
+  check_source_integrity(pid, p)
   qa=metadata.get('mesh_qa',{})
   if not (qa.get('watertight') and qa.get('winding_consistent') and qa.get('connected_components')==1
           and qa.get('gltf',{}).get('valid_structure')):
    raise HTTPException(409,'Mesh QA gate failed')
  if item.stage=='rig':
+  check_rig_integrity(pid, metadata)
   qa=metadata.get('rig_qa',{})
   if not (qa.get('unweighted_vertices')==0 and qa.get('gltf',{}).get('skins',0)>0 and qa.get('gltf',{}).get('skinned_primitives',0)>0
           and len(qa.get('pose_previews',[]))==4):
@@ -176,6 +204,7 @@ def retry_project(pid:str):
 @app.post('/api/projects/{pid}/rig')
 def build_rig(pid:str):
  p=project_or_404(pid)
+ check_source_integrity(pid, p)
  if p['state'] not in ('mesh_approved','rig_review'):raise HTTPException(409,'Rig stage unavailable')
  try:jid=store.enqueue(pid,'rig',p['state'],'rig_building')
  except ValueError as exc:bad_transition(exc)
@@ -233,6 +262,7 @@ def structured_manifest(pid:str,manifest:Manifest):
 @app.post('/api/projects/{pid}/render')
 def render_video(pid:str):
  p=project_or_404(pid)
+ check_rig_integrity(pid, json.loads(p['metadata']))
  if p['state']!='manifest_approved':raise HTTPException(409,'Approve manifest before rendering')
  try:jid=store.enqueue(pid,'render','manifest_approved','rendering')
  except ValueError as exc:bad_transition(exc)
