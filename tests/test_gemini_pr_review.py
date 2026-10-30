@@ -1,6 +1,11 @@
 """Offline unit tests for Gemini PR review guards and coverage."""
 
-from scripts.gemini_pr_review import MARKER, build_diff, find_review_comment
+from scripts.gemini_pr_review import (
+    MARKER,
+    build_diff,
+    find_review_comment,
+    should_defer_gemini_status,
+)
 
 
 def test_diff_reads_real_patch():
@@ -57,3 +62,13 @@ def test_patch_truncation_is_disclosed():
     )
     assert "[Patch truncated.]" in body
     assert stats["truncated"] == 1
+
+
+def test_temporary_provider_failures_defer_advisory_review():
+    for status in (429, 500, 502, 503, 504):
+        assert should_defer_gemini_status(status)
+
+
+def test_client_and_configuration_errors_do_not_defer_review():
+    for status in (None, "503", 400, 401, 403, 404, 422, True):
+        assert not should_defer_gemini_status(status)
