@@ -70,10 +70,14 @@ async def test_real_streamable_http_mcp_auth_and_allowlist(settings):
         assert response["untrusted"] is True
         with pytest.raises(ValueError, match="allowlist"):
             await gateway.call_readonly("local_mcp", "erase_notes", {"confirm": True})
-        with pytest.raises(Exception):
-            unauthorized = MCPGateway(replace(settings, mcp_servers=[
-                {**server, "api_token": "incorrect"}]))
+        unauthorized = MCPGateway(replace(settings, mcp_servers=[
+            {**server, "api_token": "incorrect"}]))
+        denied = False
+        try:
             await asyncio.wait_for(unauthorized.list_tools("local_mcp"), timeout=10)
+        except Exception:
+            denied = True
+        assert denied, "Remote MCP accepted an invalid bearer token"
     finally:
         process.terminate()
         try:
