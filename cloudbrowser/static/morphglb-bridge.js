@@ -67,6 +67,7 @@
         method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: file
       });
       show("Aset tersimpan: " + artifact.id + " (" + file.name + ").");
+      $("copilot-artifact").value = artifact.id;
       if (!enqueue) return;
       const state = await request("/api/state");
       if (!state.studio_enabled) {

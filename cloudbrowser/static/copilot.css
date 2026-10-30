@@ -1,0 +1,14 @@
+.copilot-shell{padding-bottom:20px}
+.copilot-shell form{display:grid;gap:12px;padding-bottom:14px}
+.copilot-shell label{display:grid;gap:7px;min-width:0;color:#c1d1e5}
+.copilot-shell textarea{min-height:75px}
+.copilot-shell #copilot-prompt{min-height:110px}
+.copilot-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.copilot-row input,.copilot-row select{width:100%;font-size:13px}
+.copilot-actions{display:flex;gap:9px;align-items:center}
+.copilot-shell details{font-size:12px;color:#b8cbe1;margin:14px 0}
+.copilot-shell pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#080e18;border:1px solid #263245;border-radius:8px;padding:14px;font-size:12px;line-height:1.6;max-height:350px;overflow:auto}
+#copilot-status{font-size:12px;line-height:1.6;color:#b7d2cc}
+#copilot-job{padding-top:10px;border-top:1px solid #263245}
+#copilot-workspace{margin-left:10px;font-size:12px}
+@media(max-width:650px){.copilot-actions{flex-wrap:wrap}}
