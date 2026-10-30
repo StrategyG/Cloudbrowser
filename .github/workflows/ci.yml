@@ -26,7 +26,7 @@ jobs:
       - run: python scripts/smoke_a2a.py
   studio:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,6 +42,8 @@ jobs:
       - run: docker build -t cloudbrowser-studio services/studio_v4
       - name: Parse Godot project in built image
         run: docker run --rm --entrypoint python cloudbrowser-studio scripts/check_godot.py
+      - name: Real external GLB to Blender/Godot MP4 smoke test
+        run: docker run --rm --shm-size=1g --entrypoint python cloudbrowser-studio scripts/smoke_glb_render.py
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 20
