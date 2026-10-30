@@ -26,12 +26,12 @@ For tests without Godot installed:
 
 ```bash
 pip install -r requirements.txt
-pytest -q
+python -m pytest -q
 ```
 
 ## Limitations / production gates
 
-- Godot engine executable, script import, frame-accurate rendering and real GLB animation have **not** been verified in this environment. CI tests only Python and file presence until a Godot validation runner is added.
+- Godot engine executable, script import, frame-accurate rendering and real GLB animation have **not** been verified in this environment. CI checks Python plus Godot GDScript import, but does not test an actual video export.
 - Rig must already exist: PNG-to-GLB reconstruction and Blender rig authoring are separate, not silently implemented here.
 - Animator is procedural and **not** motion-matching, IK, grounded locomotion, lip-sync or multi-character timeline. One character/shot at a time, up to 15 sec; 12-min episodes need an assembly pipeline.
 - Restart during an active render leaves jobs in `claimed` or `rendering`. Recovery/lease system is a required production enhancement; manual DB updates are not supported.
