@@ -3,7 +3,7 @@ import hmac, os
 from pathlib import Path
 from fastapi import FastAPI, Depends, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from .core import (ROOT, MAX_GLB_BYTES, connection, create_project,
                    get_project, transition, validate_manifest)
 
@@ -18,6 +18,7 @@ def auth(authorization: str | None=Header(default=None)):
 
 
 class Manifest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
     action:str='idle'
     fps:int=24
     duration:float=5
