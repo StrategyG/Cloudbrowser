@@ -5,6 +5,7 @@ This validates executable components, not correctness of natural locomotion or a
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -18,6 +19,7 @@ import trimesh
 from PIL import Image, ImageStat
 
 from studio import pipeline, store
+from studio.api import Approval, approve
 from studio.gltf_qa import inspect
 from studio.import_glb import validate_imported_glb
 from studio.manifest import plan
@@ -25,15 +27,15 @@ from studio.settings import DATA_ROOT
 
 
 def imported_project(source: bytes) -> str:
-    pid = store.create_project("smoke_glb", "synthetic-smoke")
+    pid = store.create_project("smoke_glb", hashlib.sha256(source).hexdigest())
     folder = DATA_ROOT / pid
     mesh = folder / "mesh.glb"
     mesh.write_bytes(source)
     qa = validate_imported_glb(mesh)
-    store.update_metadata(pid, source={"type": "glb"}, mesh_qa=qa)
+    store.update_metadata(pid, source={"type": "glb", "sha256": hashlib.sha256(source).hexdigest()}, mesh_qa=qa)
     store.change_state(pid, "uploaded", "mesh_review")
-    # The synthetic fixture is auto-reviewed only inside this test container.
-    store.change_state(pid, "mesh_review", "mesh_approved")
+    # Exercise the same mesh approval API as real production.
+    approve(pid, Approval(stage="mesh", confirm=True))
     return pid
 
 
@@ -76,19 +78,20 @@ def main():
         assert path.is_file() and path.stat().st_size > 1024
     assert store.read_metadata(second)["rig_qa"]["rig_type"] == "imported_skinned_glb"
 
-    store.change_state(second, "rig_review", "rig_approved")
+    # The production worker now verifies both owner approval checksums.
+    approve(second, Approval(stage="rig", confirm=True))
     manifest = plan("Kio diam 1 detik", fps=24, width=640, height=360)
-    (folder / "manifest.json").write_text(
-        manifest.model_copy(update={"approval": "approved"}).model_dump_json(indent=2)
-    )
+    (folder / "manifest.json").write_text(manifest.model_dump_json(indent=2))
     store.change_state(second, "rig_approved", "manifest_review")
-    store.change_state(second, "manifest_review", "manifest_approved")
+    approve(second, Approval(stage="manifest", confirm=True))
     execute(second, "render", "manifest_approved", "rendering")
 
     mp4 = folder / "output.mp4"
     assert mp4.is_file() and mp4.stat().st_size > 1024
     qa = store.read_metadata(second)["render_qa"]
     assert qa["mp4_qa"]["codec"] == "h264"
+    assert qa["mp4_sha256"] == hashlib.sha256(mp4.read_bytes()).hexdigest()
+    assert qa["input_sha256"]["manifest_sha256"] == store.read_metadata(second)["manifest_approved_sha256"]
     assert qa["frames"] == 24 and qa["width"] == 640 and qa["height"] == 360
     still = folder / "smoke_first_frame.png"
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i",
