@@ -41,3 +41,24 @@ def test_rag_service_fails_readiness_without_local_model(monkeypatch):
     readiness = module.readyz(None)
     assert readiness.status_code == 503
     assert b'"ready":false' in readiness.body
+
+
+def test_rag_readiness_probes_live_database_not_only_encoder(monkeypatch):
+    monkeypatch.setenv("RAG_API_TOKEN", "x" * 32)
+
+    class Healthy:
+        def check_ready(self):
+            return True
+
+    class Disconnected:
+        def check_ready(self):
+            raise ConnectionError("db unavailable: private dsn must not leak")
+
+    monkeypatch.setattr(module, "_engine", Healthy())
+    assert module.readyz(None)["ready"] is True
+    monkeypatch.setattr(module, "_engine", Disconnected())
+    down = module.readyz(None)
+    assert down.status_code == 503
+    assert b'"ready":false' in down.body
+    assert b"private dsn" not in down.body
+    assert module.healthz() == {"alive": True}  # liveness remains independent

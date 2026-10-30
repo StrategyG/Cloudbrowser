@@ -92,8 +92,10 @@ class Engine:
             raise RuntimeError("Model must produce 384-dimensional embeddings.")
         self.revision = MODEL_REVISION
         self.db = psycopg
-        with self.connect() as conn:
+        # Bootstrap pgvector before registering PostgreSQL type adapters.
+        with self.db.connect(self.dsn, connect_timeout=5) as conn:
             conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        with self.connect() as conn:
             conn.execute("""CREATE TABLE IF NOT EXISTS rag_documents (
                 project_id text NOT NULL, source_id text NOT NULL,
                 filename text NOT NULL, sha256 text NOT NULL, model_revision text NOT NULL,
@@ -118,10 +120,14 @@ class Engine:
         try:
             register_vector(conn)
         except Exception:
-            # pgvector may not yet be installed during bootstrap.
             conn.close()
-            conn = self.db.connect(self.dsn, connect_timeout=5)
+            raise  # Fail closed: never run retrieval with an unregistered vector adapter.
         return conn
+
+    def check_ready(self) -> bool:
+        """Verify live DB connectivity after startup, not just cached model initialization."""
+        with self.connect() as conn:
+            return conn.execute("SELECT 1").fetchone() == (1,)
 
     def ingest(self, request: IngestRequest) -> dict:
         from pgvector import Vector
@@ -203,7 +209,8 @@ def healthz():
 @app.get("/readyz")
 def readyz(_: None = Depends(authenticate)):
     try:
-        engine()
+        if not engine().check_ready():
+            raise RuntimeError("RAG database check failed.")
         return {"ready": True, "local_only": True, "embedding_revision": MODEL_REVISION}
     except Exception:
         return JSONResponse({"ready": False, "local_only": True}, status_code=503)

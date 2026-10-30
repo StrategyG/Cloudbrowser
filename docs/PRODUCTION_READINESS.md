@@ -100,3 +100,14 @@ Baseline `main` at branch creation: `6deeb419013fd6d905a619fd12c9d0491bf744ab`; 
 | TEST-012 deployment subset | `docker compose config -q` and `docker compose build` | No image/configuration regression | Pending final feature-branch CI; persistent deployment recovery still BLOCKED |
 
 **Scope:** Incremental implementation of pause/cancel lifecycle only. The full TEST-001, TEST-003 (process-kill), TEST-007 multi-user, TEST-009 external routing, TEST-011 approved ARUSIA character pilot, and TEST-012 deployed HA recovery remain **BLOCKED** or **NOT IMPLEMENTED**, irrespective of unit test results.
+
+
+## Release-gate update — 2026-10-30 follow-up branch
+
+This section supersedes the **outdated status** above for MCP and RAG after PR #10. The source inventory and some rows in the original readiness table predate those changes. A genuine MCP SDK v2 client and private RAG service now exist.
+
+**Implemented on the P0 follow-up:** (1) RAG readiness probes the live PostgreSQL connection, fails closed if pgvector adapters cannot register, and Compose health uses the authenticated `/readyz` endpoint; (2) MCP tool approvals include the approved server, tool, bounded argument key/type/length manifest, and deterministic SHA-256 prefix, **never parameter values**; (3) an automated test exercises Streamable HTTP between distinct local processes with bearer auth and allowlist denial.
+
+**Release gate:** Verify this branch's final-head CI test/studio/knowledge/container jobs before any merge. The local live-MCP test is not proof an external MCP server works. There remains **no** full Docling PDF/OCR → local model weights → PostgreSQL → Cloudbrowser end-to-end acceptance, no runtime backup/restore drill, no deployment hardening verification, no multi-owner browser-profile isolation, and no HA scheduler. Until those are demonstrated, retain **SINGLE-OWNER PILOT / NOT GENERAL PRODUCTION READY**.
+
+The RAG `/healthz` remains liveness only, while `/readyz` (with bearer token) validates a real DB `SELECT 1`. A successful readiness probe verifies the local encoder initialization and DB availability at check time, **not** semantic retrieval quality.
