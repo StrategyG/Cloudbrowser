@@ -26,6 +26,11 @@ el("inspect").onsubmit = async event => {
     const base = "/api/studio/projects/" + id;
     const info = await api(base); el("qa").textContent = JSON.stringify(info, null, 2);
     el("copilot-studio").value = id;
+    const evidence = await Promise.allSettled([api(base + "/scene"), api(base + "/motion-qa")]);
+    el("scene-inspection").textContent = evidence[0].status === "fulfilled"
+      ? JSON.stringify(evidence[0].value, null, 2) : evidence[0].reason.message;
+    el("motion-preflight").textContent = evidence[1].status === "fulfilled"
+      ? JSON.stringify(evidence[1].value, null, 2) : evidence[1].reason.message;
     el("poses").replaceChildren();
     if (info.metadata?.rig_qa) for (const pose of ["rest", "arms", "legs", "combo"]) {
       const image = document.createElement("img"); image.src = base + "/assets/rig_" + pose; image.alt = "Rig pose " + pose; image.width = 280; el("poses").append(image);
