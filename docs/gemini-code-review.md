@@ -9,7 +9,7 @@ updates one bot comment and does not merge code automatically.
 1. Add the Actions repository secret named **GEMINI_API_KEY** in
    Settings > Secrets and variables > Actions > New repository secret.
 2. Optionally set the Actions repository variable **GEMINI_MODEL**. The
-   default is **gemini-2.5-flash**; select another supported model if needed.
+   default is **gemini-3.8-flash**; select another supported model if needed.
 3. Merge the workflow and its companion script into the default branch.
    On this installation pull request, the trusted base branch does not
    contain the reviewer script yet, so initial reviews will be skipped.
