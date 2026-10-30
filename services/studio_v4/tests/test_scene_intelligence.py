@@ -98,3 +98,28 @@ def test_motion_preflight_missing_and_supported_bones():
     assert clear["quality_certified"] is False
     assert clear["unknowns"]  # No dishonest real-foot-contact PASS.
 
+
+
+def test_manifest_approval_is_digest_bound_before_render():
+    from studio.settings import DATA_ROOT
+
+    pid, _ = upload_actor()
+    store.change_state(pid, "mesh_review", "mesh_approved")
+    store.change_state(pid, "mesh_approved", "rig_building")
+    store.change_state(pid, "rig_building", "rig_review")
+    store.change_state(pid, "rig_review", "rig_approved")
+    store.change_state(pid, "rig_approved", "manifest_review")
+    manifest_file = DATA_ROOT / pid / "manifest.json"
+    manifest_file.write_text(plan("KIO berjalan").model_dump_json())
+    approval = client.post(f"/api/projects/{pid}/approve",
+                           json={"stage": "manifest", "confirm": True})
+    assert approval.status_code == 200, approval.text
+    original = store.read_metadata(pid)["manifest_approved_sha256"]
+    assert original == hashlib.sha256(manifest_file.read_bytes()).hexdigest()
+    # The project is still manifest_approved, but file content no longer matches approval.
+    manifest_file.write_text(manifest_file.read_text().replace("walk", "wave"))
+    render = client.post(f"/api/projects/{pid}/render")
+    assert render.status_code == 409
+    assert "modified since approval" in render.text
+    assert store.get_project(pid)["state"] == "manifest_approved"
+    assert not any(x["kind"] == "render" for x in store.jobs(pid))
