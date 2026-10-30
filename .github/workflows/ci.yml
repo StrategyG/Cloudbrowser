@@ -20,6 +20,7 @@ jobs:
       - run: python -m ruff check .
       - run: node --check cloudbrowser/static/app.js
       - run: node --check cloudbrowser/static/morphglb-bridge.js
+      - run: node --check cloudbrowser/static/copilot.js
       - run: python scripts/check_morphglb_scripts.py
       - run: python -m pytest -q
         env:
