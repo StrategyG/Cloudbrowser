@@ -44,11 +44,14 @@ async def assemble_cpu_episode(
     paths: list[Path] = []
     durations: list[float] = []
     signature = None
+    probes: dict[str, dict] = {}
     for artifact_id in shot_ids:
         path = media.artifacts.path(artifact_id)
         if path.suffix.lower() != ".mp4":
             raise ValueError("Episode shots must be registered MP4 files.")
-        info = await media.probe(path)
+        if artifact_id not in probes:
+            probes[artifact_id] = await media.probe(path)
+        info = probes[artifact_id]
         stream = _video_stream(info)
         dims = (int(stream.get("width", 0)), int(stream.get("height", 0)))
         rate = stream.get("r_frame_rate", "")
@@ -89,9 +92,10 @@ async def assemble_cpu_episode(
             raise ValueError("Episode subtitles must be registered SRT.")
 
     inputs = paths + [item for item in (audio, subtitle) if item is not None]
+    original_hashes = {path: _digest(path) for path in inputs}
     payload = {
         "engine": "cpu-episode-v1",
-        "inputs": [_digest(path) for path in inputs],
+        "inputs": [original_hashes[path] for path in inputs],
         "shot_count": len(paths), "audio": bool(audio), "subtitle": bool(subtitle),
     }
     key = "cpu-episode:" + hashlib.sha256(
@@ -161,6 +165,8 @@ async def assemble_cpu_episode(
             raise ValueError("Episode audio stream missing.")
         if subtitle and "subtitle" not in present:
             raise ValueError("Episode subtitle stream missing.")
+        if any(_digest(path) != digest for path, digest in original_hashes.items()):
+            raise ValueError("Source media changed while assembling episode.")
         artifact = media.artifacts.register(artifact_id, output, filename)
         media.artifacts.store.set(key, json.dumps(
             {"id": artifact_id, "sha256": _digest(output)}))
