@@ -33,6 +33,7 @@ def test_auth_and_gate(client):
     assert c.post(q+'/render',headers=h).status_code==409
     assert c.post(q+'/approve-asset',headers=h).status_code==200
     m={'character':'KIO','action':'walk','duration':2,'fps':24,'width':640,'height':360}
+    assert c.put(q+'/manifest',json={**m,'command':'execute'},headers=h).status_code==422
     assert c.put(q+'/manifest',json=m,headers=h).status_code==200
     assert c.post(q+'/render',headers=h).status_code==409
     assert c.post(q+'/approve-manifest',headers=h).status_code==200
