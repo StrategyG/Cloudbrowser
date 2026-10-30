@@ -23,6 +23,16 @@ class StudioCreate(Input):
     artifact_id: str = Field(pattern=PROJECT_ID)
 
 
+class StudioGenerated(Input):
+    artifact_id: str = Field(pattern=PROJECT_ID)
+    prompt: str = Field(min_length=1, max_length=1200)
+    mesh_mode: Literal["volumetric_draft_3d", "silhouette_2_5d"] = "volumetric_draft_3d"
+    fps: Literal[24, 30, 60] = 24
+    width: Literal[640, 1280, 1920] = 1280
+    height: Literal[360, 720, 1080] = 720
+    character: str = Field(default="KIO", pattern=r"^[A-Za-z0-9_-]{1,70}$")
+
+
 class StudioStage(StudioProject):
     stage: str = Field(pattern=r"^(mesh|rig|render)$")
 
@@ -77,6 +87,17 @@ class StudioClient:
         return "/api/projects/" + project_id
 
     async def execute(self, name, args):
+        if name == "studio_generate_project":
+            # The existing registered PNG is the only accepted source.
+            original = self.artifacts.path(args["artifact_id"])
+            if original.suffix.casefold() != ".png":
+                raise ValueError("Generated 3D drafts require a transparent PNG.")
+            project = await self.execute("studio_create_project", {"artifact_id": args["artifact_id"]})
+            try:
+                return await self.request("POST", self.route(project["id"]) + "/generate",
+                                          body={k:v for k,v in args.items() if k != "artifact_id"})
+            except Exception as exc:
+                raise ValueError("Project "+project["id"]+" uploaded, but generation did not start: "+str(exc)) from exc
         if name == "studio_create_project":
             path = self.artifacts.path(args["artifact_id"])
             suffix = path.suffix.casefold()
