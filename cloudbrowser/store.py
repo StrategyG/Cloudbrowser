@@ -100,15 +100,41 @@ class Store:
         self._write("INSERT OR REPLACE INTO kv VALUES (?,?)", (key, value))
 
     def create_job(self, goal: str, request_key: str | None = None, *, project_id: str = "default") -> dict:
+        """Deduplicate an exact request, not an unrelated goal that reuses its key.
+
+        The unique key and payload comparison share one SQLite write transaction.
+        Conflicting reuse fails closed without enqueuing or overwriting the first job.
+        """
         self.validate_project(project_id)
-        job_id, now = uuid.uuid4().hex[:12], time.time()
-        self._write(
-            "INSERT OR IGNORE INTO jobs(id, request_key, goal, status, created, updated, project_id) VALUES (?,?,?,'queued',?,?,?)",
-            (job_id, request_key, goal[:12000], now, now, project_id),
-        )
-        if request_key:
-            return self._rows("SELECT * FROM jobs WHERE request_key=?", (request_key,))[0]
-        return self.job(job_id)
+        if request_key is not None and (
+            not isinstance(request_key, str) or not 1 <= len(request_key) <= 160
+            or any(ord(char) < 32 for char in request_key)
+        ):
+            raise ValueError("Invalid idempotency key.")
+        if not isinstance(goal, str) or not goal.strip() or len(goal) > 12000:
+            raise ValueError("Goal must contain 1–12000 characters.")
+        now = time.time()
+        job_id = uuid.uuid4().hex[:12]
+        with self.lock, self.db:
+            if request_key:
+                self.db.execute(
+                    "INSERT INTO jobs(id,request_key,goal,status,created,updated,project_id) "
+                    "VALUES (?,?,?,'queued',?,?,?) ON CONFLICT(request_key) DO NOTHING",
+                    (job_id, request_key, goal, now, now, project_id),
+                )
+                row = self.db.execute("SELECT * FROM jobs WHERE request_key=?", (request_key,)).fetchone()
+                if row is None:
+                    raise RuntimeError("Idempotency key could not be resolved.")
+                if row["goal"] != goal or row["project_id"] != project_id:
+                    raise ValueError("Idempotency key already used with a different goal or project.")
+            else:
+                self.db.execute(
+                    "INSERT INTO jobs(id,request_key,goal,status,created,updated,project_id) "
+                    "VALUES (?,NULL,?,'queued',?,?,?)",
+                    (job_id, goal, now, now, project_id),
+                )
+                row = self.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        return dict(row)
 
     def job(self, job_id: str) -> dict:
         rows = self._rows("SELECT * FROM jobs WHERE id=?", (job_id,))
