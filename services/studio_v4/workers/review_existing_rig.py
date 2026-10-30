@@ -18,13 +18,16 @@ def review(source: Path, report: Path) -> None:
     bpy.ops.object.delete(use_global=False)
     bpy.ops.import_scene.gltf(filepath=str(source))
     meshes = [item for item in bpy.context.scene.objects if item.type == "MESH"]
-    rigs = [item for item in bpy.context.scene.objects if item.type == "ARMATURE"]
-    if len(meshes) != 1 or len(rigs) != 1:
-        raise ValueError("Existing-rig QA requires exactly one mesh and one armature")
-    mesh, arm = meshes[0], rigs[0]
-    modifiers = [m for m in mesh.modifiers if m.type == "ARMATURE" and m.object == arm]
-    if len(modifiers) != 1:
-        raise ValueError("Skin must bind mesh to the sole armature")
+    bound = [(mesh, modifier.object) for mesh in meshes for modifier in mesh.modifiers
+             if modifier.type == "ARMATURE" and modifier.object is not None
+             and modifier.object.type == "ARMATURE"]
+    # GLB importer may create additional *unbound* skeleton/helper objects.
+    # Only one real skin binding is valid for this one-character pipeline.
+    if len(bound) != 1:
+        raise ValueError("Expected one skinned mesh-to-armature binding; "
+                         f"found {len(bound)} (mesh objects={len(meshes)}, "
+                         f"armatures={len([o for o in bpy.context.scene.objects if o.type == 'ARMATURE'])})")
+    mesh, arm = bound[0]
     missing = [bone for bone in REQUIRED if bone not in arm.pose.bones]
     if missing:
         raise ValueError("Rig has incompatible bone names: " + ", ".join(missing))
