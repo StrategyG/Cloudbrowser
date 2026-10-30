@@ -91,6 +91,25 @@ def finish_job(jid, ok, message=''):
  with conn() as c:
   c.execute('UPDATE jobs SET state=?,message=?,updated_at=? WHERE id=?',('done' if ok else 'failed',message[:3000],time.time(),jid))
 
+def recover_interrupted():
+ """Fail closed after worker restart; never replay uncertain external effects.
+
+ An interrupted Blender/Godot process may have modified files before crashing.
+ Owner must inspect the project and explicitly retry, rather than replaying
+ queued render commands and risking duplicate destructive operations.
+ """
+ now=time.time()
+ with conn() as db:
+  db.execute('BEGIN IMMEDIATE')
+  rows=db.execute("SELECT id,project_id,kind FROM jobs WHERE state='running'").fetchall()
+  for row in rows:
+   db.execute("UPDATE jobs SET state='failed',message=?,updated_at=? WHERE id=? AND state='running'",
+              ('Interrupted worker; inspect artifacts before manual retry',now,row['id']))
+   db.execute("UPDATE projects SET state='failed',updated_at=? WHERE id=? AND state=?",
+              (now,row['project_id'],{'mesh':'mesh_building','rig':'rig_building','render':'rendering'}[row['kind']]))
+ return len(rows)
+
+
 def jobs(pid):
  with conn() as c:
   return [dict(r) for r in c.execute('SELECT * FROM jobs WHERE project_id=? ORDER BY created_at DESC LIMIT 20',(pid,))]
