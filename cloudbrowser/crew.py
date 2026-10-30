@@ -23,6 +23,8 @@ PROFILES = {
 }
 PROFILES["editor"] |= {name for name in TOOL_MAP if name.startswith("studio_")}
 PROFILES["reviewer"].add("studio_get_project")
+PROFILES["reviewer"].add("rag_search")
+PROFILES["writer"].add("rag_search")
 STATES = {name: getattr(TaskState, "TASK_STATE_" + name.upper())
           for name in ("submitted", "working", "completed", "failed", "canceled", "input_required")}
 SPECIALIST_SYSTEM = """You are a scoped Cloudbrowser specialist. Work only on your assigned task.
