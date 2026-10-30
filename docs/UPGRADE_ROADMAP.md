@@ -311,3 +311,17 @@ Permission-scoped semantic/procedural memory, outcome-based replan suggestions, 
 `P0-A → P0-B (policy + egress) → P1 (MCP + DB leases) → P2 (asset/shot orchestration) → P3 (learning)`.
 
 **Stop/review triggers:** test failure, policy regression, ambiguous external action, secrets in logs, failed migration, unverified ARUSIA asset, or incompatible GLB rig. Maintain separate `IMPLEMENTED`, `TESTED`, `VERIFIED`, `BLOCKED`, and `NOT IMPLEMENTED` records throughout.
+
+---
+
+## 2026-10-30 execution update: P0 lifecycle control
+
+**Applied to feature branch:** `feat/v5-p0-lifecycle-control`, preserving existing SQLite/WAL, A2A, Telegram, Web, Playwright, and Studio infrastructure. This is a P0 sub-increment, not completion of Cloudbrowser v5.0.
+
+1. **Implemented in branch:** Explicit operator pause/cancel/stop semantics and terminal guards; private Telegram controls; authenticated/CSRF-protected dashboard controls; audit events and regression tests.
+2. **Verify before merge:** Green CI for the final commit (`test`, `container`, `studio`), with focused `tests/test_v5_lifecycle.py` and prior approval/recovery tests.
+3. **Next P0:** Centralize structured risk decisions for all tool classes; add explicit supervisor/proposal contract independent of policy; verify session boot health and restricted AI egress on a real local GGUF runtime.
+4. **Next P1:** Durable DAG tasks, bounded retry/backoff, cancellation-aware process supervisor, checkpoint schema, browser state assertions and idempotent external reconciliation.
+5. **P2/P3 after prerequisites:** Generic MCP tool registry; PostgreSQL migration design + tested cutover; scoped memory; resource-aware worker pool; ARUSIA approved-asset shot pilot and human visual QA.
+
+**Deployment guard:** Do not enable multi-user mode or public admin endpoints on this branch. Do not treat experimental task cancellation as proof of forceful process termination or exactly-once remote effects.
