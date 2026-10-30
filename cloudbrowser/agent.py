@@ -337,6 +337,9 @@ class Agent:
             return await self.media.compose(**args)
         if name == "render_storyboard":
             return await self.media.storyboard(**args)
+        if name == "render_cpu_shot":
+            from .cpu_shot import render_cpu_shot
+            return await render_cpu_shot(self.media, **args)
         if name == "send_artifact":
             if not self.deliver:
                 raise ValueError("Telegram belum terhubung. Unduh hasil melalui dashboard.")
