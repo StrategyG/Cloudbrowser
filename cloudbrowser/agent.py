@@ -340,6 +340,9 @@ class Agent:
         if name == "render_cpu_shot":
             from .cpu_shot import render_cpu_shot
             return await render_cpu_shot(self.media, **args)
+        if name == "assemble_cpu_episode":
+            from .cpu_episode import assemble_cpu_episode
+            return await assemble_cpu_episode(self.media, **args)
         if name == "send_artifact":
             if not self.deliver:
                 raise ValueError("Telegram belum terhubung. Unduh hasil melalui dashboard.")
