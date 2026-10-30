@@ -34,7 +34,7 @@ The 1.6 MB editor source is **outside public `/static`**, accessible only throug
 the session-protected `GET /studio/morphglb` route. The iframe has
 `sandbox="allow-scripts allow-downloads"` and **not** `allow-same-origin`.
 The server also applies a CSP `sandbox` directive, including for direct visits.
-The sandbox has an opaque origin, no network connections, no top-level navigation,
+The sandbox has an opaque origin, no arbitrary network connections (blob/data fetches are permitted for local GLB textures), no top-level navigation,
 no forms, and no access to dashboard session/CSRF data. The parent handles explicit
 asset transfers only. Inline script/style is permitted **within that sandbox only**,
 while the ordinary Cloudbrowser dashboard retains its strict CSP.
