@@ -164,7 +164,7 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
                 "script-src 'unsafe-inline' 'wasm-unsafe-eval' blob:; "
                 "style-src 'unsafe-inline'; img-src data: blob:; "
                 "media-src blob:; worker-src blob:; font-src data:; "
-                "connect-src 'none'; object-src 'none'; frame-ancestors 'self'; "
+                "connect-src blob: data:; object-src 'none'; frame-ancestors 'self'; "
                 "base-uri 'none'; form-action 'none'"
             )
         else:
