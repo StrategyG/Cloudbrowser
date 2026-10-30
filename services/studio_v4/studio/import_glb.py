@@ -44,6 +44,8 @@ def validate_imported_glb(path: Path) -> dict:
     count = doc["accessors"][prim["indices"]]["count"] if "indices" in prim else gltf["vertex_count"]
     if count > MAX_GLTF_TRIANGLES * 3:
         raise ValueError("Too many triangles")
+    if gltf["animations"]:
+        raise ValueError("Embedded GLB animations are not supported by the procedural Godot runner")
     if gltf["skins"] > 1:
         raise ValueError("Only a single skin is supported")
     if gltf["skins"]:
