@@ -238,7 +238,7 @@ class TelegramService:
                               ("\n".join(f"{j['id']} • {j['status']} • {j['goal'][:90]}" for j in rows) or "Belum ada pekerjaan."))
         elif command == "/tasks":
             rows = self.store.jobs()[:8]
-            await self.notify("\\n".join(f"{j['id']} • {j['status']} • {j['goal'][:75]}" for j in rows)
+            await self.notify("\n".join(f"{j['id']} • {j['status']} • {j['goal'][:75]}" for j in rows)
                               or "Belum ada pekerjaan.")
         elif command == "/health":
             try:
@@ -247,19 +247,19 @@ class TelegramService:
             except Exception:
                 database = "ERROR"
             worker = bool(self.agent.worker and not self.agent.worker.done() and not self.agent.closing)
-            await self.notify(f"Database: {database}\\nWorker: {'OK' if worker else 'OFFLINE'}\\n"
-                              f"Browser: {'ACTIVE' if self.agent.browser.context else 'NOT_STARTED'}\\n"
+            await self.notify(f"Database: {database}\nWorker: {'OK' if worker else 'OFFLINE'}\n"
+                              f"Browser: {'ACTIVE' if self.agent.browser.context else 'NOT_STARTED'}\n"
                               f"Studio: {'CONFIGURED' if self.agent.studio.enabled else 'DISABLED'}")
         elif command == "/browser":
             pages = self.agent.browser.context.pages if self.agent.browser.context else []
             hosts = [urlsplit(page.url).hostname or "local/blank" for page in pages[:10]]
             await self.notify("Browser: " + ("RUNNING" if self.agent.browser.context else "NOT_STARTED")
-                              + "\\nTab domains: " + (", ".join(hosts) if hosts else "(none)"))
+                              + "\nTab domains: " + (", ".join(hosts) if hosts else "(none)"))
         elif command == "/report":
             job = self.store.job(argument)
             events = self.store.events(argument)[:5]
-            await self.notify(f"Job {job['id']}: {job['status']}\\n"
-                              + ("\\n".join(f"{e['kind']}: {self.settings.redact(e['detail'])[:200]}"
+            await self.notify(f"Job {job['id']}: {job['status']}\n"
+                              + ("\n".join(f"{e['kind']}: {self.settings.redact(e['detail'])[:200]}"
                                           for e in events) or "Belum ada audit event."))
         elif command == "/screen":
             screenshot = await self.agent.browser.screenshot()
