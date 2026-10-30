@@ -19,7 +19,7 @@ PROFILES = {
     "writer": {"write_text_artifact", "read_text_artifact", "list_artifacts", "ask_user"},
     "browser": {name for name in TOOL_MAP if name.startswith("browser_")} | {"read_text_artifact", "list_artifacts", "ask_user"},
     "editor": {"compose_video", "render_storyboard", "render_cpu_shot",
-               "assemble_cpu_episode", "write_text_artifact", "read_text_artifact", "list_artifacts", "ask_user"},
+               "assemble_cpu_episode", "render_cpu_scene", "write_text_artifact", "read_text_artifact", "list_artifacts", "ask_user"},
     "reviewer": {"read_text_artifact", "list_artifacts", "inspect_artifact", "ask_user"},
 }
 PROFILES["editor"] |= {name for name in TOOL_MAP if name.startswith("studio_")}
