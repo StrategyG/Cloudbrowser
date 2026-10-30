@@ -115,6 +115,31 @@
     } catch (error) { status.textContent = error.message; }
     finally { button.disabled = false; }
   });
+  $("copilot-preview").addEventListener("click", async () => {
+    const button = $("copilot-preview");
+    button.disabled = true;
+    try {
+      const project = $("copilot-studio").value.trim();
+      if (!/^[a-f0-9]{32}$/.test(project)) {
+        throw Error("Preview memerlukan Studio project ID yang valid.");
+      }
+      const body = {
+        project_id: project,
+        prompt: $("copilot-prompt").value.trim(),
+        character: $("copilot-target").value.trim() || "KIO",
+        fps: 24, width: 1280, height: 720
+      };
+      const result = await call("/api/studio/projects/" + project + "/plan-preview", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body)
+      });
+      const box = $("copilot-preview-output");
+      box.hidden = false;
+      box.textContent = JSON.stringify(result, null, 2);
+      status.textContent = "Preview dihasilkan tanpa mengubah manifest. Untuk menerapkan, jalankan mode Edit dengan approval.";
+    } catch (error) { status.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
   $("copilot-refresh").addEventListener("click", () =>
     refresh().catch(error => { status.textContent = error.message; }));
 
