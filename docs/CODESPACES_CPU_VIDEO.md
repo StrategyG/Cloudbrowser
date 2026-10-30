@@ -56,8 +56,9 @@ to durable storage before deleting/rebuilding a Codespace.
    \`render_cpu_shot\` with those IDs and motion parameters.
 3. Inspect the actual returned MP4 with \`inspect_artifact\` and human visual
    review; then pass the returned ID to \`compose_video\` for sequential shots.
-   The current compose tool accepts 1–20 clips. Split larger episodes into
-   batches and perform final assembly in a separate approved workflow.
+   Use `assemble_cpu_episode` for up to 120 uniform H.264 shots (with optional
+   episode audio and selectable subtitles); `compose_video` remains available
+   for at most 20 mixed-format clips.
 
 Example **tool arguments** (replace the placeholder IDs with real artifact IDs):
 
@@ -99,6 +100,74 @@ parameters. Cache hits validate the rendered file's hash before reuse;
 changed input PNG bytes or parameters force a new render. Failed or cancelled
 encodes remove their unregistered partial MP4. These protections reduce
 duplicate CPU work; they are not a substitute for persistent backup.
+
+## Full CPU episode assembly (up to 120 approved MP4 shots)
+
+The new \`assemble_cpu_episode\` editor/orchestrator tool accepts 1–120
+**registered local MP4** shot IDs in playback order. It requires uniform
+H.264/yuv420p dimensions, frame rate, timebase, codec profile and level.
+Inputs must not carry audio streams; the optional episode-wide audio input
+may be WAV, MP3, OGG, FLAC or M4A. Optional SRT captions are embedded as a
+selectable MP4 subtitle stream (\`mov_text\`), **not burned into frames**.
+
+\`\`\`json
+{
+  "shot_ids": [
+    "00000000000000000000000000000001",
+    "00000000000000000000000000000002"
+  ],
+  "audio_id": "",
+  "subtitle_id": ""
+}
+\`\`\`
+
+The assembler uses FFmpeg concat with \`-c:v copy\` for speed instead of
+re-encoding the entire episode. It validates registered paths, matching
+video parameters, per-shot duration (0–15 seconds), total duration
+(maximum 20 minutes), resulting streams and approximate duration. It caches
+the result by ordered content hashes and rejects source modifications seen
+during assembly. Source files are not fetched from websites or arbitrary
+filesystem locations. The whole MP4 is still bounded by the server's
+artifact size limit, **100 MiB by default**.
+
+It is a **single-worker bounded episode assembler**, not a distributed
+durable queue or a multi-character animation engine. Shot generation is
+checkpointed by per-shot hash caches, so a repeated approved job can reuse
+completed source MP4s; an interrupted assembly is rerun from approved shots.
+The assembled output still needs full decoding, listening, sync review and
+owner approval. The system does not guarantee precisely once effects on
+external providers.
+
+### Target-machine release qualification
+
+First install dependencies and run the Python test suite (see below).
+Then run a real CPU smoke test on **the actual Codespace**:
+
+\`\`\`bash
+python scripts/cpu_production_acceptance.py --shot-seconds 3 \
+  --report cpu-video-acceptance.json
+
+# Long-duration synthetic episode: 120 x 6s = 720s, at 640x360/24fps.
+# This does NOT certify image/animation quality.
+python scripts/cpu_production_acceptance.py --shot-seconds 6 \
+  --repeat-cycles 60 --report cpu-video-12min.json
+\`\`\`
+
+The acceptance tool synthesizes its own PNG assets and actually renders
+two pose-cycled shots, concatenates them and decodes the resulting MP4
+fully. It reports elapsed time, child-process peak RSS and actual duration.
+It requires no GPU, model account or API credentials. The full test must
+finish while the Codespace remains alive and within available storage.
+Inspect both JSON reports. Run an additional production-sized real-asset
+test at the intended final resolution and FPS, since the 640x360 smoke
+test does not measure 1080p performance.
+
+**Release gates:** passing CI and Codespaces CPU benchmark; verified
+RAM/disk/headroom under load; repeatable restart/resume from persisted
+artifacts; owner visual review of actual ARUSIA walk cycles, multi-character
+timing and lip sync; final audio/subtitle sync; a 12-minute finished
+episode that passes content QC. Failure of any gate means **NO-GO for
+unattended commercial animation production**.
 
 ## Validation
 
