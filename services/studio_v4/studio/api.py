@@ -1,0 +1,207 @@
+"""Local-first API: explicit approval gates and durable worker queue."""
+import hashlib
+import json
+import re
+import shutil
+from pathlib import Path
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel, Field
+from . import store
+from .settings import API_TOKEN, DATA_ROOT, MAX_UPLOAD_BYTES
+from .mesh import validate_png
+from .manifest import Manifest, plan
+
+ROOT=Path(__file__).resolve().parent.parent
+app=FastAPI(title='Full Pipeline Studio Godot V4.1',version='4.1.0')
+store.init()
+
+@app.middleware('http')
+async def security(request:Request,call_next):
+ if request.url.path not in ('/api/health', '/'):
+  if API_TOKEN:
+   import secrets
+   given=request.headers.get('x-studio-token','')
+   if not secrets.compare_digest(API_TOKEN,given):
+    from fastapi.responses import JSONResponse
+    return JSONResponse({'detail':'Invalid studio access token'},status_code=401)
+  else:
+   host=request.client.host if request.client else ''
+   if host not in ('127.0.0.1','::1','testclient'):
+    from fastapi.responses import JSONResponse
+    return JSONResponse({'detail':'Configure STUDIO_API_TOKEN before remote access'},status_code=403)
+ return await call_next(request)
+
+@app.get('/',response_class=HTMLResponse)
+def home():return (ROOT/'web'/'index.html').read_text()
+
+@app.get('/api/health')
+def health():return {'ok':True,'version':'4.1.0','worker':'separate process','render_engine':'godot_4',
+                      'security':'token' if API_TOKEN else 'loopback_only'}
+
+def project_or_404(pid):
+ if not re.fullmatch(r'[a-f0-9]{32}',pid):raise HTTPException(404,'Project not found')
+ p=store.get_project(pid)
+ if not p:raise HTTPException(404,'Project not found')
+ return p
+
+def bad_transition(e):raise HTTPException(409,str(e))
+
+@app.post('/api/projects')
+async def upload_asset(asset:UploadFile=File(...)):
+ name=asset.filename or 'asset.png'
+ if not name.casefold().endswith('.png'):raise HTTPException(415,'PNG file required')
+ payload=await asset.read(MAX_UPLOAD_BYTES+1)
+ if not payload or len(payload)>MAX_UPLOAD_BYTES:raise HTTPException(413,'File exceeds 12 MB')
+ if payload[:8]!=b'\x89PNG\r\n\x1a\n':raise HTTPException(415,'Invalid PNG signature')
+ pid=store.create_project(Path(name).stem[:70],hashlib.sha256(payload).hexdigest())
+ folder=DATA_ROOT/pid
+ try:
+  src=folder/'source.png';src.write_bytes(payload)
+  rgba=validate_png(src)
+  store.update_metadata(pid,source={'width':rgba.width,'height':rgba.height,'sha256':hashlib.sha256(payload).hexdigest()})
+ except Exception as exc:
+  with store.conn() as c:c.execute('DELETE FROM projects WHERE id=?',(pid,))
+  shutil.rmtree(folder,ignore_errors=True)
+  raise HTTPException(422,str(exc))
+ return {'id':pid,'state':'uploaded'}
+
+@app.get('/api/projects/{pid}')
+def get_project(pid:str):
+ p=project_or_404(pid)
+ return {'id':pid,'name':p['name'],'state':p['state'],'sha256':p['sha256'],
+         'metadata':json.loads(p['metadata']),'jobs':store.jobs(pid)}
+
+@app.get('/api/projects/{pid}/assets/{asset_type}')
+def fetch_asset(pid:str,asset_type:str):
+ project_or_404(pid)
+ items={'png':('source.png','image/png'), 'mesh':('mesh.glb','model/gltf-binary'),
+        'rig_rest':('rig_pose_rest.png','image/png'), 'rig_arms':('rig_pose_arms.png','image/png'),
+        'rig_legs':('rig_pose_legs.png','image/png'), 'rig_combo':('rig_pose_combo.png','image/png'),
+        'rig':('rigged.glb','model/gltf-binary'),
+        'manifest':('manifest.json','application/json'),
+        'mp4':('output.mp4','video/mp4')}
+ if asset_type not in items:raise HTTPException(404,'Unknown asset')
+ filename,mime=items[asset_type];path=DATA_ROOT/pid/filename
+ if not path.is_file():raise HTTPException(404,'Asset is not available')
+ return FileResponse(path,media_type=mime,filename=filename,
+                     content_disposition_type='inline' if asset_type in ('png','mp4') else 'attachment',
+                     headers={'X-Content-Type-Options':'nosniff'})
+
+@app.post('/api/projects/{pid}/mesh')
+def build_mesh(pid:str):
+ p=project_or_404(pid)
+ if p['state'] not in ('uploaded','mesh_review'):raise HTTPException(409,'Mesh stage unavailable')
+ try:jid=store.enqueue(pid,'mesh',p['state'],'mesh_building')
+ except ValueError as exc:bad_transition(exc)
+ return {'job_id':jid,'state':'mesh_building'}
+
+class Approval(BaseModel):
+ stage: str
+ confirm: bool
+
+@app.post('/api/projects/{pid}/approve')
+def approve(pid:str,item:Approval):
+ p=project_or_404(pid)
+ if item.confirm is not True:raise HTTPException(422,'Explicit approval required')
+ expected={'mesh':('mesh_review','mesh_approved'),
+           'rig':('rig_review','rig_approved'),
+           'manifest':('manifest_review','manifest_approved')}.get(item.stage)
+ if not expected:raise HTTPException(422,'Unknown stage')
+ metadata=json.loads(p['metadata'])
+ if item.stage=='mesh':
+  qa=metadata.get('mesh_qa',{})
+  if not (qa.get('watertight') and qa.get('winding_consistent') and qa.get('connected_components')==1
+          and qa.get('gltf',{}).get('valid_structure')):
+   raise HTTPException(409,'Mesh QA gate failed')
+ if item.stage=='rig':
+  qa=metadata.get('rig_qa',{})
+  if not (qa.get('unweighted_vertices')==0 and qa.get('gltf',{}).get('skins',0)>0 and qa.get('gltf',{}).get('skinned_primitives',0)>0
+          and len(qa.get('pose_previews',[]))==4):
+   raise HTTPException(409,'Rig QA gate failed')
+ if item.stage=='manifest':
+  path=DATA_ROOT/pid/'manifest.json'
+  if not path.exists():raise HTTPException(409,'Missing manifest')
+  manifest=Manifest.model_validate_json(path.read_text())
+  if manifest.approval!='pending':raise HTTPException(409,'Manifest needs pending approval')
+  path.write_text(manifest.model_copy(update={'approval':'approved'}).model_dump_json(indent=2))
+ try:store.change_state(pid,*expected)
+ except ValueError as exc:bad_transition(exc)
+ return {'state':expected[1],'approval_recorded':True}
+
+@app.post('/api/projects/{pid}/retry')
+def retry_project(pid:str):
+ p=project_or_404(pid)
+ if p['state']!='failed':raise HTTPException(409,'Only failed projects may retry')
+ prior=store.jobs(pid)
+ if not prior:raise HTTPException(409,'No failure to retry')
+ kind=prior[0]['kind']
+ if kind not in ('mesh','rig','render'):raise HTTPException(409,'Unknown retry target')
+ if sum(1 for j in prior if j['kind']==kind and j['state']=='failed')>=3:
+  raise HTTPException(409,'Retry budget exhausted; manual intervention required')
+ return {'job_id':store.enqueue(pid,kind,'failed',{'mesh':'mesh_building','rig':'rig_building','render':'rendering'}[kind]),'kind':kind}
+
+@app.post('/api/projects/{pid}/rig')
+def build_rig(pid:str):
+ p=project_or_404(pid)
+ if p['state'] not in ('mesh_approved','rig_review'):raise HTTPException(409,'Rig stage unavailable')
+ try:jid=store.enqueue(pid,'rig',p['state'],'rig_building')
+ except ValueError as exc:bad_transition(exc)
+ return {'job_id':jid,'state':'rig_building'}
+
+class PromptRequest(BaseModel):
+ prompt: str=Field(min_length=1,max_length=1200)
+ fps: int=24
+ character: str='KIO'
+ width: int=1280
+ height: int=720
+
+@app.post('/api/projects/{pid}/prompt')
+def submit_prompt(pid:str,request:PromptRequest):
+ p=project_or_404(pid)
+ if p['state'] not in ('rig_approved','manifest_review','completed','manifest_approved'):
+  raise HTTPException(409,'Approve rig before writing scene')
+ try:manifest=plan(request.prompt,request.fps,request.character,request.width,request.height)
+ except Exception as exc:raise HTTPException(422,str(exc))
+ path=DATA_ROOT/pid/'manifest.json'
+ path.write_text(manifest.model_dump_json(indent=2))
+ store.update_metadata(pid,prompt=request.prompt)
+ if p['state']!='manifest_review':
+  try:store.change_state(pid,p['state'],'manifest_review')
+  except ValueError as exc:bad_transition(exc)
+ return manifest.model_dump()
+
+@app.post('/api/projects/{pid}/ai-plan')
+def submit_ai_prompt(pid:str,request:PromptRequest):
+ p=project_or_404(pid)
+ if p['state'] not in ('rig_approved','manifest_review','completed','manifest_approved'):
+  raise HTTPException(409,'Approve rig before writing scene')
+ from .local_ai import generate
+ try:manifest=generate(request.prompt,request.fps,request.character,request.width,request.height)
+ except Exception as exc:raise HTTPException(422,str(exc))
+ (DATA_ROOT/pid/'manifest.json').write_text(manifest.model_dump_json(indent=2))
+ store.update_metadata(pid,prompt=request.prompt)
+ if p['state']!='manifest_review':
+  try:store.change_state(pid,p['state'],'manifest_review')
+  except ValueError as exc:bad_transition(exc)
+ return manifest.model_dump()
+
+@app.post('/api/projects/{pid}/manifest')
+def structured_manifest(pid:str,manifest:Manifest):
+ p=project_or_404(pid)
+ if p['state'] not in ('rig_approved','manifest_review','completed','manifest_approved'):
+  raise HTTPException(409,'Approve rig first')
+ clean=manifest.model_copy(update={'approval':'pending','planner':'structured_user'})
+ (DATA_ROOT/pid/'manifest.json').write_text(clean.model_dump_json(indent=2))
+ if p['state']!='manifest_review':
+  try:store.change_state(pid,p['state'],'manifest_review')
+  except ValueError as exc:bad_transition(exc)
+ return clean.model_dump()
+
+@app.post('/api/projects/{pid}/render')
+def render_video(pid:str):
+ p=project_or_404(pid)
+ if p['state']!='manifest_approved':raise HTTPException(409,'Approve manifest before rendering')
+ try:jid=store.enqueue(pid,'render','manifest_approved','rendering')
+ except ValueError as exc:bad_transition(exc)
+ return {'job_id':jid,'state':'rendering'}

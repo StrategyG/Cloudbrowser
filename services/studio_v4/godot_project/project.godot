@@ -1,0 +1,16 @@
+; Full Pipeline Studio: isolated Godot render project (Godot 4.7.x)
+config_version=5
+
+[application]
+config/name="ARUSIA Studio Offline Renderer"
+run/main_scene="res://main.tscn"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="disabled"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false

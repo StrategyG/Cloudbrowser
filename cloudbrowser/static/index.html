@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Cloudbrowser — Creator Workspace</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div id="toast" role="status" hidden></div>
+  <section id="login" class="login-shell">
+    <div class="login-card">
+      <div class="brand"><span class="logo">C</span> Cloudbrowser</div>
+      <p class="eyebrow">YOUR SERVER. YOUR CREATIVE WORKSPACE.</p>
+      <h1>Ide di Telegram.<br>Produksi di browser.</h1>
+      <p class="muted">Masuk untuk melihat browser, menyelesaikan login akun, dan meninjau pekerjaan AI.</p>
+      <form id="login-form">
+        <label for="password">Password dashboard</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="Password saat konfigurasi server">
+        <button class="primary" type="submit">Buka ruang kerja <span>→</span></button>
+      </form>
+      <small>Pengaturan API AI dan bot Telegram dilakukan melalui terminal server.</small>
+    </div>
+  </section>
+  <div id="workspace" hidden>
+    <header>
+      <div class="brand"><span class="logo">C</span> Cloudbrowser <span class="pill">CREATOR</span></div>
+      <div class="header-right"><span id="bot-status" class="connection">Telegram · menghubungkan</span><button id="logout" class="quiet">Keluar</button></div>
+    </header>
+    <main>
+      <section class="intro"><div><p class="eyebrow">CREATIVE OPERATIONS</p><h1>Ruang kerja kreator</h1><p class="muted">Arahkan AI. Lihat prosesnya. Ambil hasilnya.</p></div><div class="model-box"><small>MODEL AKTIF</small><strong id="model-name">—</strong><span id="vision-status" class="muted">—</span></div></section>
+      <div class="layout">
+        <section class="browser-panel panel">
+          <div class="panel-heading"><div><span class="dot"></span><strong>Browser server</strong></div><label class="live-switch"><input id="live" type="checkbox"> Layar langsung</label></div>
+          <div class="browser-toolbar"><button data-site="https://labs.google/fx/tools/flow">Google Flow ↗</button><button data-site="https://www.capcut.com/my-edit">CapCut ↗</button><button id="new-tab">+ Tab</button><select id="tabs" aria-label="Pilih tab"><option>Tab browser</option></select></div>
+          <form id="navigate-form" class="url-bar"><span>↗</span><input id="url" placeholder="https://labs.google/fx/tools/flow" type="url" required aria-label="Alamat website"><button>Buka</button></form>
+          <div class="viewport" id="viewport"><img id="screen" alt="Tampilan browser di server" hidden draggable="false"><div id="screen-placeholder"><span class="screen-icon">↗</span><h2>Browser Anda ada di sini</h2><p>Aktifkan layar langsung untuk login dan bekerja manual.</p><small>Hentikan pekerjaan AI sebelum mengambil alih browser.</small></div></div>
+          <div class="manual-controls"><form id="type-form"><input id="type-text" placeholder="Teks untuk kolom yang sedang dipilih" type="password" autocomplete="off" aria-label="Ketik ke browser"><button>Ketik</button></form><select id="key" aria-label="Tombol keyboard"><option>Enter</option><option>Tab</option><option>Escape</option><option>Backspace</option><option>Control+a</option><option>ArrowLeft</option><option>ArrowRight</option><option>Space</option></select><button id="press-key">Tekan</button><button id="scroll-up" title="Gulir ke atas">↑</button><button id="scroll-down" title="Gulir ke bawah">↓</button></div>
+          <div class="browser-footer"><span>Klik gambar untuk mengklik browser · resolusi 1280 × 720</span><label><input id="drag-mode" type="checkbox"> Mode geser timeline</label></div>
+        </section>
+        <aside>
+          <section class="panel padded"><strong>Studio / Godot</strong><p class="small muted">Tinjau QA mesh, pose rig, manifest dan hasil render.</p><a href="/studio">Buka Studio →</a></section>
+          <section class="panel padded"><strong>Konteks proyek</strong><form id="project-form"><input id="project-name" aria-label="Nama proyek" placeholder="arusia" pattern="[a-z][a-z0-9_-]{0,39}" required maxlength="40"><textarea id="project-brief" aria-label="Arahan tetap proyek" maxlength="8000" placeholder="Karakter, gaya, dan aturan produksi yang perlu diingat…"></textarea><button>Simpan konteks</button></form><p class="small muted">Setiap proyek menyimpan arahan dan riwayat pekerjaannya sendiri.</p></section>
+          <section class="panel command-panel"><div class="panel-heading"><strong>Berikan arahan</strong><span class="pill">AI AGENT</span></div><form id="job-form"><textarea id="goal" required maxlength="12000" placeholder="Buka Google Flow dan siapkan video pendek berdasarkan naskah saya…"></textarea><div class="mode-row"><span>Kontrol tindakan</span><select id="mode"><option value="approve">Dengan persetujuan</option><option value="auto">Otomatis</option></select></div><p id="mode-note" class="muted small">Klik, pengetikan dan unggahan AI menunggu persetujuan Anda.</p><button type="submit" class="primary">Jalankan pekerjaan <span>→</span></button></form><p class="small muted">Kirim perintah yang sama melalui bot Telegram. Login akun dilakukan manual di browser ini.</p></section>
+          <section class="panel approval-panel"><div class="panel-heading"><strong>Menunggu keputusan</strong><span id="approval-count" class="pill">0</span></div><div id="approvals" class="stack empty">Belum ada permintaan persetujuan.</div></section>
+          <section class="panel padded"><strong>Hasil tindakan perlu diperiksa</strong><p class="small muted">Periksa website sebelum menentukan apakah tindakan sudah terjadi.</p><div id="uncertain-actions" class="stack empty">Tidak ada tindakan yang perlu dipastikan.</div></section>
+        </aside>
+      </div>
+      <div class="bottom-grid">
+        <section class="panel"><div class="panel-heading"><strong>Tim agent A2A</strong><span class="pill">MODEL-BUILT</span></div><div id="agents" class="stack empty">AI akan membangun tim sesuai pekerjaan.</div></section>
+        <section class="panel"><div class="panel-heading"><strong>Pekerjaan</strong><span class="muted small">Antrean server</span></div><div id="jobs" class="stack empty">Belum ada pekerjaan.</div></section>
+        <section class="panel"><div class="panel-heading"><strong>Aset &amp; hasil</strong><label class="upload-button">+ Unggah<input id="file" type="file" hidden></label></div><p class="small muted padded">Unduhan browser, naskah, subtitle dan video tersimpan di sini.</p><div id="artifacts" class="stack empty">Belum ada file.</div></section>
+      </div>
+      <footer>Cloudbrowser · Self-hosted creator agent <span>Google Flow dan CapCut mengikuti akses, kuota dan kebijakan akun Anda.</span></footer>
+    </main>
+  </div>
+  <dialog id="job-dialog"><div class="panel-heading"><strong id="job-title">Pekerjaan</strong><button id="close-dialog">Tutup</button></div><p id="job-goal"></p><pre id="job-result"></pre><strong>Langkah dan pemeriksaan</strong><pre id="job-workflow"></pre><pre id="job-budget"></pre><pre id="job-events"></pre><textarea id="resume-text" placeholder="Arahan tambahan atau konfirmasi bahwa login manual selesai…"></textarea><div class="dialog-actions"><button id="stop-job" class="danger">Hentikan</button><button id="resume-job" class="primary">Lanjutkan pekerjaan</button></div></dialog>
+</body>
+</html>

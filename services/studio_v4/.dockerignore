@@ -1,0 +1,9 @@
+workspace
+__pycache__
+.pytest_cache
+.godot
+tests
+samples
+*.sqlite*
+*.avi
+*.mp4

@@ -1,0 +1,35 @@
+services:
+  cloudbrowser:
+    environment:
+      CLOUDBROWSER_STUDIO_URL: http://studio-api:8000
+      CLOUDBROWSER_STUDIO_TOKEN: ${STUDIO_API_TOKEN:?Set STUDIO_API_TOKEN to a random value of at least 32 characters}
+  studio-api:
+    build: ./services/studio_v4
+    restart: unless-stopped
+    environment:
+      STUDIO_DATA_ROOT: /app/workspace
+      STUDIO_API_TOKEN: ${STUDIO_API_TOKEN:?Set STUDIO_API_TOKEN}
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - studio_data:/app/workspace
+    mem_limit: 1g
+    pids_limit: 128
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+  studio-worker:
+    build: ./services/studio_v4
+    command: ["python", "-m", "studio.worker"]
+    restart: unless-stopped
+    environment:
+      STUDIO_DATA_ROOT: /app/workspace
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    volumes:
+      - studio_data:/app/workspace
+    mem_limit: 4g
+    cpus: 2
+    pids_limit: 512
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+volumes:
+  studio_data:

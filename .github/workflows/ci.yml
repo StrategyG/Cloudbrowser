@@ -1,0 +1,53 @@
+name: Verify Cloudbrowser
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.lock -e '.[dev,studio]'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m ruff check .
+      - run: python -m pytest -q
+        env:
+          CLOUDBROWSER_TEST_BROWSER: '1'
+      - run: python scripts/smoke_a2a.py
+  studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -r services/studio_v4/requirements.lock
+      - run: python -m pytest -q tests
+        working-directory: services/studio_v4
+      - run: docker compose -f compose.yaml -f compose.studio.yaml config -q
+        env:
+          STUDIO_API_TOKEN: ci-only-placeholder-token-at-least-32-characters
+      - run: docker build -t cloudbrowser-studio services/studio_v4
+      - name: Parse Godot project in built image
+        run: docker run --rm --entrypoint sh cloudbrowser-studio -c 'cp -R /app/godot_project /tmp/godot-check && godot --headless --editor --path /tmp/godot-check --import --quit'
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config -q
+      - run: docker compose build
+      - name: Container CLI and sandboxed Chromium smoke test
+        run: |
+          docker compose run --rm cloudbrowser --help
+          docker compose run --rm --entrypoint python cloudbrowser /app/scripts/smoke_browser.py
