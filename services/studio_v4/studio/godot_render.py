@@ -93,6 +93,50 @@ def validate_video(path: Path, manifest: Manifest, expected_frames: int,
     return meta
 
 
+def validate_frame_content(path: Path, frame_count: int, ffmpeg: str | None = None) -> dict:
+    """Decode first/middle/last MP4 frames to reject blank or uniform outputs.
+
+    This is a *technical video integrity* check, not character animation QA.
+    Foot contact, motion smoothness, visual likeness and IK remain unknown.
+    """
+    from statistics import pstdev
+
+    if frame_count < 1:
+        raise RuntimeError("Cannot inspect video without frames")
+    points = sorted({0, frame_count // 2, frame_count - 1})
+    width, height = 160, 90
+    # Select by zero-based decoded index. No user-controlled filter arguments.
+    expression = "+".join("eq(n\\\\," + str(index) + ")" for index in points)
+    command = [
+        ffmpeg or FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(path),
+        "-an", "-vf", "select=" + expression + ",scale=160:90,format=gray",
+        "-fps_mode", "vfr", "-frames:v", str(len(points)),
+        "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+    ]
+    result = subprocess.run(command, capture_output=True, timeout=180, check=False)
+    if result.returncode:
+        raise RuntimeError("Frame decoding QA failed: " + result.stderr.decode(
+            "utf-8", errors="replace")[-300:])
+    block = width * height
+    if len(result.stdout) != block * len(points):
+        raise RuntimeError("Frame QA decoded fewer frames than expected")
+    deviations = [
+        round(pstdev(result.stdout[index * block:(index + 1) * block]), 3)
+        for index in range(len(points))
+    ]
+    # Encoding quantization and flat scene lighting are tolerated; truly flat
+    # single-color outputs are not valid animated scene deliverables.
+    if min(deviations) < 2.5:
+        raise RuntimeError("Frame QA rejected a blank or nearly uniform frame")
+    return {
+        "method": "first_middle_last_decoded_grayscale_spatial_variance",
+        "sampled_frames": points,
+        "spatial_stddev": deviations,
+        "content_not_blank": True,
+        "motion_quality_certified": False,
+    }
+
+
 def render(folder: Path, run_command, godot_bin: str | None = None,
            ffprobe_bin: str | None = None, xvfb_bin: str | None = None) -> dict:
     folder = Path(folder).resolve()
@@ -113,10 +157,13 @@ def render(folder: Path, run_command, godot_bin: str | None = None,
                  '-an', '-fps_mode', 'passthrough', '-c:v', 'libx264', '-preset', 'medium',
                  '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(mp4)], timeout=1200)
     mp4_meta = validate_video(mp4, manifest, frames, 'h264', ffprobe)
+    frame_content_qa = validate_frame_content(mp4, frames)
     # Retain original AVI for debugging only on explicit opt-in.
     if os.getenv('STUDIO_KEEP_INTERMEDIATE_AVI', '0') != '1':
         movie.unlink(missing_ok=True)
     return {'engine': 'godot_4', 'deterministic_offline': True, 'frames': frames,
             'fps': manifest.fps, 'width': manifest.width, 'height': manifest.height,
             'encoded': True, 'video_bytes': mp4.stat().st_size,
-            'avi_qa': avi_meta, 'mp4_qa': mp4_meta, 'rig_source': 'blender_glb'}
+            'avi_qa': avi_meta, 'mp4_qa': mp4_meta,
+            'frame_content_qa': frame_content_qa,
+            'rig_source': 'blender_glb'}
