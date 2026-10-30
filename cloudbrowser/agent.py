@@ -445,9 +445,17 @@ class Agent:
         # Chat and Plan are advisory even if the owner generally enabled auto mode.
         # The model cannot turn a planning prompt into a Studio mutation or remote call.
         goal = self.store.job(job_id)["goal"]
+        advisory_tools = {
+            "rag_search", "studio_get_project", "studio_inspect_scene",
+            "studio_motion_preflight", "studio_preview_scene", "list_artifacts",
+            "read_text_artifact", "inspect_artifact", "browser_observe",
+            "a2a_list_agents", "a2a_get_task", "a2a_list_peers",
+            "a2a_set_workflow", "a2a_delegate_task", "a2a_review_task",
+            "write_text_artifact", "ask_user",
+        }
         if (goal.startswith(("CLOUDBROWSER ANIMATION COPILOT / CHAT\n",
                              "CLOUDBROWSER ANIMATION COPILOT / PLAN\n"))
-                and tool.approval):
+                and name not in advisory_tools):
             return {"error": "Copilot Chat/Plan is advisory. Use Edit or Agent mode "
                     "and owner approval for mutations."}
         if not tool.approval:

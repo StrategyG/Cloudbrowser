@@ -57,6 +57,8 @@ COPILOT_SPECIALISTS = (
         "instructions": (
             "Produce supported, deterministic Studio/Godot scene plans and bounded video shots. "
             "Check available FPS, duration, character, contact and collision constraints. "
+            "Use studio_inspect_scene and studio_motion_preflight for evidence and " 
+            "studio_preview_scene to show a no-write shot plan before approved changes. " 
             "Use studio_get_project to inspect state before mutating, never repeat uncertain "
             "stages, and request owner approval for scene planning, stages and render."
         ),
@@ -82,7 +84,8 @@ MODE_POLICY = {
         "explanation or an artifact only if useful."
     ),
     "plan": (
-        "Draft a reviewable shot/asset change plan before any execution. Include expected "
+        "Use read-only studio_inspect_scene, studio_motion_preflight, and studio_preview_scene " 
+        "when the project is available. Draft a reviewable shot/asset change plan before any execution. Include expected "
         "outputs, scene QA checklist, hard dependencies, model limitations, and the "
         "owner approval points. Do not initiate mesh, rig, render or browser changes."
     ),

@@ -22,7 +22,8 @@ PROFILES = {
     "reviewer": {"read_text_artifact", "list_artifacts", "inspect_artifact", "ask_user"},
 }
 PROFILES["editor"] |= {name for name in TOOL_MAP if name.startswith("studio_")}
-PROFILES["reviewer"].add("studio_get_project")
+PROFILES["reviewer"] |= {"studio_get_project", "studio_inspect_scene", "studio_motion_preflight", "studio_preview_scene"}
+PROFILES["writer"] |= {"studio_inspect_scene", "studio_motion_preflight", "studio_preview_scene"}
 PROFILES["reviewer"].add("rag_search")
 PROFILES["writer"].add("rag_search")
 STATES = {name: getattr(TaskState, "TASK_STATE_" + name.upper())

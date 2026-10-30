@@ -13,6 +13,7 @@ from .settings import API_TOKEN, DATA_ROOT, MAX_UPLOAD_BYTES
 from .mesh import validate_png
 from .import_glb import MAX_GLB_UPLOAD_BYTES, validate_imported_glb
 from .manifest import Manifest, plan
+from .scene_intelligence import inspect_project, motion_preflight
 
 ROOT=Path(__file__).resolve().parent.parent
 app=FastAPI(title='Full Pipeline Studio Godot V4.1',version='4.1.0')
@@ -128,6 +129,21 @@ def get_project(pid:str):
  return {'id':pid,'name':p['name'],'state':p['state'],'sha256':p['sha256'],
          'metadata':json.loads(p['metadata']),'jobs':store.jobs(pid)}
 
+@app.get('/api/projects/{pid}/scene')
+def scene_info(pid:str):
+ p=project_or_404(pid)
+ try:
+  return inspect_project(pid,p)
+ except (ValueError, OSError) as exc:
+  raise HTTPException(409,'Scene inspection failed: '+str(exc)[:180]) from exc
+
+
+@app.get('/api/projects/{pid}/motion-qa')
+def motion_qa(pid:str):
+ scene=scene_info(pid)
+ return motion_preflight(scene)
+
+
 @app.get('/api/projects/{pid}/assets/{asset_type}')
 def fetch_asset(pid:str,asset_type:str):
  project_or_404(pid)
@@ -185,6 +201,9 @@ def approve(pid:str,item:Approval):
   manifest=Manifest.model_validate_json(path.read_text())
   if manifest.approval!='pending':raise HTTPException(409,'Manifest needs pending approval')
   path.write_text(manifest.model_copy(update={'approval':'approved'}).model_dump_json(indent=2))
+  with path.open('rb') as approved_manifest:
+   approved_digest=hashlib.file_digest(approved_manifest,'sha256').hexdigest()
+  store.update_metadata(pid,manifest_approved_sha256=approved_digest)
  try:store.change_state(pid,*expected)
  except ValueError as exc:bad_transition(exc)
  return {'state':expected[1],'approval_recorded':True}
@@ -216,6 +235,25 @@ class PromptRequest(BaseModel):
  character: str='KIO'
  width: int=1280
  height: int=720
+
+@app.post('/api/projects/{pid}/plan-preview')
+def preview_scene(pid:str,request:PromptRequest):
+ # Does not write a manifest, create jobs, or alter existing approvals.
+ p=project_or_404(pid)
+ if p['state'] not in ('rig_approved','manifest_review','manifest_approved','completed'):
+  raise HTTPException(409,'Approve rig before previewing a production scene')
+ try:
+  candidate=plan(request.prompt,request.fps,request.character,request.width,request.height)
+ except (ValueError,TypeError) as exc:
+  raise HTTPException(422,str(exc)) from exc
+ current=DATA_ROOT/pid/'manifest.json'
+ before=None
+ if current.is_file():
+  before=hashlib.sha256(current.read_bytes()).hexdigest()
+ return {'project_id':pid,'preview':candidate.model_dump(),
+         'current_manifest_sha256':before,'writes_performed':False,
+         'quality_certified':False,'requires_owner_approval':True}
+
 
 @app.post('/api/projects/{pid}/prompt')
 def submit_prompt(pid:str,request:PromptRequest):
@@ -264,6 +302,17 @@ def render_video(pid:str):
  p=project_or_404(pid)
  check_rig_integrity(pid, json.loads(p['metadata']))
  if p['state']!='manifest_approved':raise HTTPException(409,'Approve manifest before rendering')
+ path=DATA_ROOT/pid/'manifest.json'
+ expected=json.loads(p['metadata']).get('manifest_approved_sha256')
+ if not expected or not path.is_file():
+  raise HTTPException(409,'Missing approved manifest checksum')
+ with path.open('rb') as current_manifest:
+  actual=hashlib.file_digest(current_manifest,'sha256').hexdigest()
+ if actual!=expected:
+  raise HTTPException(409,'Manifest modified since approval; review and approve again')
+ report=motion_preflight(scene_info(pid))
+ if report['blocked']:
+  raise HTTPException(409,'Motion preflight failed: '+json.dumps(report['findings'])[:400])
  try:jid=store.enqueue(pid,'render','manifest_approved','rendering')
  except ValueError as exc:bad_transition(exc)
  return {'job_id':jid,'state':'rendering'}

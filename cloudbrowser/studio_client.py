@@ -90,6 +90,15 @@ class StudioClient:
         route = self.route(args["project_id"])
         if name == "studio_get_project":
             return await self.request("GET", route)
+        if name == "studio_inspect_scene":
+            return await self.request("GET", route + "/scene")
+        if name == "studio_motion_preflight":
+            return await self.request("GET", route + "/motion-qa")
+        if name == "studio_preview_scene":
+            if args["fps"] not in {24, 30, 60} or (args["width"], args["height"]) not in {(640, 360), (1280, 720), (1920, 1080)}:
+                raise ValueError("Unsupported Studio FPS or resolution.")
+            return await self.request("POST", route + "/plan-preview",
+                                      body={k: v for k, v in args.items() if k != "project_id"})
         if name == "studio_start_stage":
             return await self.request("POST", route + "/" + args["stage"])
         if name == "studio_approve_stage":

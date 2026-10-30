@@ -31,6 +31,8 @@
 <input id="copilot-project" pattern="[a-z][a-z0-9_-]{0,39}" maxlength="40" required value="default"></label>
 </div>
 <div class="copilot-row">
+<label for="copilot-character">Karakter untuk preview
+<select id="copilot-character"><option>KIO</option><option>LUMI</option><option>ARKA</option><option>MAYOR</option><option>RUX</option></select></label>
 <label for="copilot-studio">Studio project ID (opsional)
 <input id="copilot-studio" pattern="[a-f0-9]{32}" maxlength="32" placeholder="32 digit hex dari Tinjau proyek"></label>
 <label for="copilot-artifact">Artifact ID PNG/GLB (opsional)
@@ -42,11 +44,11 @@
 <textarea id="copilot-notes" maxlength="2000" rows="2" placeholder="Contoh: shot 03, lantai Z=0, kontak telapak kaki selama walk cycle 24 FPS."></textarea>
 <label for="copilot-prompt">Instruksi AI Copilot</label>
 <textarea id="copilot-prompt" maxlength="1800" minlength="3" required placeholder="Periksa gerakan berjalan KIO. Susun perbaikan kontak kaki dan root motion; jangan jalankan render sampai QA dan persetujuan."></textarea>
-<div class="copilot-actions"><button class="primary" id="copilot-run" type="submit">Jalankan Copilot</button><button id="copilot-refresh" type="button" disabled>Perbarui status</button></div>
+<div class="copilot-actions"><button class="primary" id="copilot-run" type="submit">Jalankan Copilot</button><button id="copilot-preview" type="button">Preview manifest tanpa perubahan</button><button id="copilot-refresh" type="button" disabled>Perbarui status</button></div><pre id="copilot-preview-output" hidden></pre>
 </form>
 <p id="copilot-status" role="status" aria-live="polite"></p>
 <details><summary>Agent produksi</summary><ul id="copilot-agents"></ul></details>
 <div id="copilot-job" hidden><strong>Job: <span id="copilot-job-id"></span></strong> <a id="copilot-workspace" href="/">Buka workspace / approval</a><pre id="copilot-output"></pre></div>
 </section>
-<section class="panel padded"><h2>Tinjau proyek</h2><form id="inspect"><input id="project" aria-label="Studio project ID" placeholder="ID proyek Studio" pattern="[a-f0-9]{32}" required><button>Periksa QA dan pose</button></form><pre id="qa"></pre><div id="poses"></div><a id="manifest" hidden>Lihat manifest adegan</a><video id="video" controls hidden></video></section>
+<section class="panel padded"><h2>Tinjau proyek</h2><p class="small muted">Scene Intelligence membaca struktur GLB yang tersimpan, bukan pilihan live di MorphGLB. Motion QA bersifat statis; kontak kaki dan foot sliding tetap memerlukan pemeriksaan frame.</p><form id="inspect"><input id="project" aria-label="Studio project ID" placeholder="ID proyek Studio" pattern="[a-f0-9]{32}" required><button>Periksa QA dan pose</button></form><pre id="qa"></pre><details><summary>Scene hierarchy, rig dan material</summary><pre id="scene-inspection"></pre></details><details><summary>Motion QA (static preflight)</summary><pre id="motion-preflight"></pre></details><div id="poses"></div><a id="manifest" hidden>Lihat manifest adegan</a><video id="video" controls hidden></video></section>
 <section class="panel padded"><h2>Lanjutkan pekerjaan</h2><p>Setujui tindakan melalui Workspace atau Telegram. Jika agent menunggu render, lanjutkan job setelah status proyek berubah menjadi completed. Masukkan ID proyek Studio ke arahan lanjutan.</p><pre id="result"></pre></section></main></body></html>
