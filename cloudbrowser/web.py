@@ -25,6 +25,7 @@ from .media import Media
 from .store import Store
 from .telegram import TelegramService
 from .tools import TOOL_MAP, Input
+from .studio_client import StudioPlan
 
 COOKIE = "cloudbrowser_session"
 
@@ -270,6 +271,20 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
     @app.get("/api/studio/projects/{project_id}", dependencies=[Depends(sessions.require)])
     async def studio_project(project_id: str):
         return await agent.studio.execute("studio_get_project", {"project_id": project_id})
+
+    @app.get("/api/studio/projects/{project_id}/scene", dependencies=[Depends(sessions.require)])
+    async def studio_scene_info(project_id: str):
+        return await agent.studio.execute("studio_inspect_scene", {"project_id": project_id})
+
+    @app.get("/api/studio/projects/{project_id}/motion-qa", dependencies=[Depends(sessions.require)])
+    async def studio_motion_qa(project_id: str):
+        return await agent.studio.execute("studio_motion_preflight", {"project_id": project_id})
+
+    @app.post("/api/studio/projects/{project_id}/plan-preview", dependencies=[Depends(sessions.require)])
+    async def studio_plan_preview(project_id: str, body: StudioPlan):
+        if project_id != body.project_id:
+            raise HTTPException(422, "Project ID mismatch.")
+        return await agent.studio.execute("studio_preview_scene", body.model_dump())
 
     @app.get("/api/studio/projects/{project_id}/assets/{kind}", dependencies=[Depends(sessions.require)])
     async def studio_preview(project_id: str, kind: str):
