@@ -38,7 +38,7 @@ def safe_members(zf: zipfile.ZipFile):
     selected = []
     for info in infos:
         name = info.filename
-        if not name.startswith(EXPECTED_ROOT) or "\\\\" in name:
+        if not name.startswith(EXPECTED_ROOT) or "\\" in name:
             raise ValueError(f"Unexpected archive path: {name!r}")
         rel = PurePosixPath(name[len(EXPECTED_ROOT):])
         if rel.is_absolute() or not rel.parts or any(p in ("", ".", "..") for p in rel.parts):
