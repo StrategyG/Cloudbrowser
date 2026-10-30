@@ -58,6 +58,16 @@
       "errnoRet": 38
     },
     {
+      "names": [
+        "chroot"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [],
+      "comment": "Chromium namespace sandbox chroot; kernel capability checks still apply with outer caps dropped.",
+      "includes": {},
+      "excludes": {}
+    },
+    {
       "comment": "Allow create user namespaces",
       "names": [
         "clone",

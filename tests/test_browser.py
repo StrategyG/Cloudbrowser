@@ -48,6 +48,8 @@ async def test_password_is_excluded_from_observation_and_manual_entry_required(s
         await page.locator("input").focus()
         with pytest.raises(ValueError, match="dashboard"):
             await browser.action("type", {"snapshot_id": snapshot["snapshot_id"], "text": "no"})
+        # Focus does not guarantee an end-position caret across Chromium versions.
+        await browser.action("press", {"key": "End"}, manual=True)
         await browser.action("type", {"text": "manual"}, manual=True)
         assert await page.locator("input").input_value() == "private-passwordmanual"
     finally:
