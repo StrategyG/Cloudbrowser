@@ -46,7 +46,9 @@ async def test_real_mcp_sdk_inprocess_discovery_and_scoped_call(settings, monkey
     assert "rig" in str(output["result"])
     with pytest.raises(ValueError, match="allowlist"):
         await gateway.call_readonly("knowledge", "delete_everything", {"confirm": True})
-    with pytest.raises(Exception):
+    from jsonschema import ValidationError as SchemaValidationError
+
+    with pytest.raises(SchemaValidationError):
         await gateway.call_readonly("knowledge", "search_notes",
                                     {"query": "rig", "limit": "invalid"})
     with pytest.raises(ValueError, match="8000"):
