@@ -142,6 +142,11 @@ async def test_mcp_owner_approval_blocks_unauthorized_call(make_agent, monkeypat
         await asyncio.wait_for(wait(), 5)
         assert not called
         approval = agent.store.pending_approvals()[0]
+        assert "server=knowledge" in approval["summary"]
+        assert "tool=search_notes" in approval["summary"]
+        assert "fields=query:str[6]" in approval["summary"]
+        assert "sha256-prefix=" in approval["summary"]
+        assert "arusia" not in approval["summary"]  # Private parameter stays out of Telegram.
         assert agent.decide(approval["id"], True)
         await asyncio.wait_for(agent.queue.join(), 5)
         assert len(called) == 1
