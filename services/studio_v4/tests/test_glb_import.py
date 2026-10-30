@@ -98,3 +98,21 @@ def test_external_glb_rejects_more_than_one_mesh(tmp_path):
     src.write_bytes(scene.export(file_type="glb"))
     with pytest.raises(ValueError, match="one mesh"):
         validate_imported_glb(src)
+
+
+def test_external_glb_owner_approval_rejects_tampered_mesh():
+    from studio.settings import DATA_ROOT
+    raw = glb_bytes()
+    created = client.post("/api/projects", files={
+        "asset": ("asset.glb", raw, "model/gltf-binary")
+    })
+    assert created.status_code == 200, created.text
+    pid = created.json()["id"]
+    source = DATA_ROOT / pid / "mesh.glb"
+    source.write_bytes(raw + b"tampered")
+    response = client.post(f"/api/projects/{pid}/approve", json={
+        "stage": "mesh", "confirm": True
+    })
+    assert response.status_code == 409
+    assert "changed since validation" in response.text
+    assert client.get("/api/projects/" + pid).json()["state"] == "mesh_review"
