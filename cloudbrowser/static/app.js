@@ -143,5 +143,7 @@ async function openJob(id) {
 }
 $("close-dialog").onclick = () => $("job-dialog").close();
 $("stop-job").onclick = async () => { try { await post(`/api/jobs/${selectedJob}/stop`); $("job-dialog").close(); await refresh(); } catch(e) { toast(e.message); } };
+$("pause-job").onclick = async () => { try { await post(`/api/jobs/${selectedJob}/pause`); $("job-dialog").close(); await refresh(); } catch(e) { toast(e.message); } };
+$("cancel-job").onclick = async () => { if (!window.confirm("Batalkan job ini secara permanen? Job tidak dapat dilanjutkan.")) return; try { await post(`/api/jobs/${selectedJob}/cancel`); $("job-dialog").close(); await refresh(); } catch(e) { toast(e.message); } };
 $("resume-job").onclick = async () => { try { await post(`/api/jobs/${selectedJob}/resume`, { text: $("resume-text").value || "Lanjutkan setelah memeriksa browser saat ini." }); $("job-dialog").close(); await refresh(); } catch(e) { toast(e.message); } };
 (async () => { try { const session = await api("/api/session"); csrf = session.csrf_token; await showWorkspace(); } catch { showLogin(); } })();
