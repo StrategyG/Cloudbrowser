@@ -43,7 +43,23 @@ jobs:
       - name: Parse Godot project in built image
         run: docker run --rm --entrypoint python cloudbrowser-studio scripts/check_godot.py
       - name: Real external GLB to Blender/Godot MP4 smoke test
-        run: docker run --rm --shm-size=1g --entrypoint python cloudbrowser-studio scripts/smoke_glb_render.py
+        run: |
+          mkdir -p /tmp/cloudbrowser-studio-smoke
+          chmod 777 /tmp/cloudbrowser-studio-smoke
+          docker run --rm --shm-size=1g -e STUDIO_DATA_ROOT=/ci-output \\
+            -v /tmp/cloudbrowser-studio-smoke:/ci-output \\
+            --entrypoint python cloudbrowser-studio scripts/smoke_glb_render.py
+      - name: Upload synthetic GLB pipeline acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-glb-smoke-evidence
+          path: |
+            /tmp/cloudbrowser-studio-smoke/smoke_output.mp4
+            /tmp/cloudbrowser-studio-smoke/smoke_preview.png
+            /tmp/cloudbrowser-studio-smoke/smoke_report.json
+          if-no-files-found: warn
+          retention-days: 7
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 20
