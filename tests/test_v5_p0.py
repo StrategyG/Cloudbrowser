@@ -3,10 +3,10 @@ import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
+from test_web import login
 
 from cloudbrowser.store import Store
 from cloudbrowser.web import create_app
-from test_web import login
 
 
 def test_exact_idempotency_is_atomic_and_survives_reopening_database(tmp_path):
