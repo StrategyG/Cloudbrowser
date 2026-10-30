@@ -97,6 +97,7 @@ def test_unicode_chunks_fit_telegram_utf16_limit():
 
 async def test_owner_lifecycle_commands_and_health_without_secrets(settings, make_agent):
     bot, agent, client = service(settings, make_agent)
+    bot.settings.ai_api_key = "synthetic-ci-secret-never-real"
     first = agent.store.create_job("Safe operation", "tg:queued")
     await bot.handle(update("/pause " + first["id"], user=999, update_id=100))
     assert agent.store.job(first["id"])["status"] == "queued"
