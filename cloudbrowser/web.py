@@ -23,7 +23,7 @@ from .copilot import CopilotRequest, catalog, install_specialists, make_goal
 from .llm import AIClient
 from .media import Media
 from .store import Store
-from .studio_client import StudioPlan, StudioGenerated, StudioApproval
+from .studio_client import StudioApproval, StudioGenerated, StudioPlan
 from .telegram import TelegramService
 from .tools import TOOL_MAP, Input
 
