@@ -456,7 +456,21 @@ class Agent:
         elif name == "a2a_send_remote":
             summary = f"Delegasikan tugas ke peer {args['peer_id']} ({len(args['task'])} karakter)"
         elif name == "mcp_readonly_call":
-            summary = f"MCP server {args['server_id']} read tool {args['tool_name']} (may transmit arguments to remote endpoint)."
+            # The owner sees the destination, argument structure and exact payload fingerprint.
+            # Never copy query text, credentials or arbitrary values into Telegram/audit logs.
+            payload = json.dumps(args["arguments"], sort_keys=True, separators=(",", ":"),
+                                 ensure_ascii=False)
+            fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+            preview = []
+            for key, value in list(args["arguments"].items())[:12]:
+                field = key if key.isidentifier() and len(key) <= 40 else "(untrusted key)"
+                kind = type(value).__name__
+                size = len(value) if isinstance(value, (str, list, dict)) else None
+                preview.append(f"{field}:{kind}" + (f"[{size}]" if size is not None else ""))
+            summary = (f"MCP remote server={args['server_id']} tool={args['tool_name']} "
+                       f"args={len(payload.encode('utf-8'))} bytes, fields={','.join(preview)}; "
+                       f"sha256-prefix={fingerprint}. Verify destination and tool semantics "
+                       "before approval; argument values are not sent to Telegram.")
         elif name == "rag_ingest_artifact":
             summary = f"Index registered artifact {args['artifact_id']} into private RAG."
         elif name.startswith("studio_"):
