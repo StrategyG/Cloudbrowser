@@ -101,7 +101,29 @@ async function refreshScreen() {
   } finally { refreshingScreen = false; }
 }
 $("live").onchange = () => { clearInterval(screenTimer); if ($("live").checked) { refreshScreen().catch(e => toast(e.message)); screenTimer = setInterval(() => refreshScreen().catch(() => {}), 1800); } };
-$("job-form").onsubmit = async event => { event.preventDefault(); try { const job = await post("/api/jobs", { text: $("goal").value }); $("goal").value = ""; toast(`Job ${job.id} masuk antrean.`); await refresh(); } catch(e) { toast(e.message); } };
+// A retry after a lost response reuses the same key; changed input starts a new intent.
+let pendingGoalSubmission = null;
+let creatingGoal = false;
+$("job-form").onsubmit = async event => {
+  event.preventDefault();
+  if (creatingGoal) return;
+  const goal = $("goal").value;
+  if (!pendingGoalSubmission || pendingGoalSubmission.goal !== goal) {
+    pendingGoalSubmission = {goal, key: crypto.randomUUID()};
+  }
+  creatingGoal = true;
+  try {
+    const job = await post("/api/jobs", {text: goal, idempotency_key: pendingGoalSubmission.key});
+    pendingGoalSubmission = null;
+    $("goal").value = "";
+    toast(`Job ${job.id} masuk antrean.`);
+    await refresh();
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    creatingGoal = false;
+  }
+};
 $("mode").onchange = async () => { const mode = $("mode").value; try { await post("/api/mode", { mode }); await refresh(); } catch(e) { toast(e.message); $("mode").value = currentState.mode; } };
 $("project-form").onsubmit = async event => { event.preventDefault(); try { await post("/api/project", { id: $("project-name").value, brief: $("project-brief").value }); projectDirty = false; toast("Konteks proyek tersimpan."); await refresh(); } catch(e) { toast(e.message); } };
 $("file").onchange = async () => { const file = $("file").files[0]; if (!file) return; try { const result = await api(`/api/artifacts?filename=${encodeURIComponent(file.name)}`, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: file }); toast(`Unggahan tersimpan. ID: ${result.id}`); await refresh(); } catch(e) { toast(e.message); } finally { $("file").value = ""; } };
