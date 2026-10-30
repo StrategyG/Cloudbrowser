@@ -4,7 +4,7 @@ This service is integrated with Cloudbrowser A2A 0.4. Start the combined stack f
 root with `sh scripts/start_studio.sh`. See [STUDIO.md](../../docs/STUDIO.md) for configuration,
 owner approvals, job recovery, API tools, editor access and limitations.
 
-The worker uses PNG silhouette extrusion (2.5D), Blender rig authoring, Godot 4.7.2 offline movie
+The worker accepts PNG silhouette extrusion (2.5D) or strictly validated imported external GLB (one connected character mesh), Blender rig authoring/QA, Godot 4.7.2 offline movie
 capture, and FFmpeg MP4 encoding. It supports one character, 15 seconds and 900 frames per job.
 No full 3D reconstruction, voice generation, lip sync, production foot IK or multi-character
 choreography is supplied. Mesh, rig and manifest require manual review.
