@@ -59,14 +59,18 @@ def validate_imported_glb(path: Path) -> dict:
     mesh = meshes[0]
     if not len(mesh.vertices) or not len(mesh.faces):
         raise ValueError("Empty geometry")
-    if not mesh.is_watertight or not mesh.is_winding_consistent:
-        raise ValueError("Mesh must be watertight with consistent winding")
-    if mesh.volume <= 0:
+    # glTF exporters split identical spatial vertices across material/UV seams.
+    # Weld a QC-only copy by position. Never rewrite the original skin/UV/geometry.
+    topology = mesh.copy()
+    topology.merge_vertices(merge_tex=True, merge_norm=True, digits_vertex=6)
+    if not topology.is_watertight or not topology.is_winding_consistent:
+        raise ValueError("Mesh must be geometrically watertight with consistent winding")
+    if topology.volume <= 0:
         raise ValueError("Mesh winding must have positive volume")
-    components = len(mesh.split(only_watertight=False))
+    components = len(topology.split(only_watertight=False))
     if components != 1:
         raise ValueError("Single connected character mesh required")
-    if not all(float(value) > 0 for value in mesh.extents):
+    if not all(float(value) > 0 for value in topology.extents):
         raise ValueError("Degenerate mesh dimensions")
     return {
         "geometry_kind": "imported_glb_3d",
