@@ -12,6 +12,8 @@ import json
 import math
 from pathlib import Path
 
+from PIL import Image
+
 from .cpu_shot import _digest, _png
 from .media import Media
 
@@ -53,6 +55,13 @@ async def render_cpu_scene(
         })
     if len(sources) > 21:
         raise ValueError("Scene exceeds 20 pose-image inputs.")
+    # Prevent dozens of oversized pose PNGs from exhausting a small Codespace.
+    total_pixels = 0
+    for path in sources:
+        with Image.open(path) as image:
+            total_pixels += image.width * image.height
+    if total_pixels > 48_000_000:
+        raise ValueError("Scene source-image pixel budget exceeded.")
 
     payload = {"engine": "cpu-scene-v1",
                "inputs": [_digest(path) for path in sources],
