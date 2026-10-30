@@ -23,7 +23,7 @@ from .copilot import CopilotRequest, catalog, install_specialists, make_goal
 from .llm import AIClient
 from .media import Media
 from .store import Store
-from .studio_client import StudioPlan
+from .studio_client import StudioPlan, StudioGenerated, StudioApproval
 from .telegram import TelegramService
 from .tools import TOOL_MAP, Input
 
@@ -267,6 +267,20 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
         # Deliberately outside /static: raw editor must not be publicly fetchable.
         document = Path(__file__).parent / "morphglb" / "MorphGLB_AI_Studio_v3.3.0.html"
         return FileResponse(document, media_type="text/html")
+
+    @app.post("/api/studio/generate", dependencies=[Depends(sessions.require)])
+    async def studio_generate(body: StudioGenerated):
+        """Explicit owner click begins generated draft; mesh/rig/manifest still need approval."""
+        if not agent.studio.enabled:
+            raise HTTPException(503,"Studio service is not configured.")
+        return await agent.studio.execute("studio_generate_project",body.model_dump())
+
+    @app.post("/api/studio/projects/{project_id}/approve", dependencies=[Depends(sessions.require)])
+    async def studio_owner_approve(project_id: str, body: StudioApproval):
+        if project_id != body.project_id:
+            raise HTTPException(422,"Project ID mismatch.")
+        # CSRF + authenticated owner POST constitute an explicit per-stage decision.
+        return await agent.studio.execute("studio_approve_stage",body.model_dump())
 
     @app.get("/api/studio/projects/{project_id}", dependencies=[Depends(sessions.require)])
     async def studio_project(project_id: str):
