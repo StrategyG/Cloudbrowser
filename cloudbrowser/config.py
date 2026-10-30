@@ -206,6 +206,8 @@ def load_settings(directory: Path) -> Settings:
     settings.a2a_api_key = os.environ.get("CLOUDBROWSER_A2A_API_KEY", settings.a2a_api_key)
     settings.studio_base_url = os.environ.get("CLOUDBROWSER_STUDIO_URL", settings.studio_base_url)
     settings.studio_api_token = os.environ.get("CLOUDBROWSER_STUDIO_TOKEN", settings.studio_api_token)
+    settings.rag_base_url = os.environ.get("CLOUDBROWSER_RAG_URL", settings.rag_base_url)
+    settings.rag_api_token = os.environ.get("CLOUDBROWSER_RAG_TOKEN", settings.rag_api_token)
     if settings.public_origin:
         settings.secure_cookie = True
     settings.validate()
