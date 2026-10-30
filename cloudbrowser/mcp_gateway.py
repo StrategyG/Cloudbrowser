@@ -30,9 +30,9 @@ class MCPGateway:
     @asynccontextmanager
     async def _connect(self, server: dict) -> AsyncIterator:
         try:
+            import httpx2
             from mcp import Client
             from mcp.client.streamable_http import streamable_http_client
-            import httpx2
         except ImportError:
             raise ValueError("MCP SDK not installed: pip install 'cloudbrowser[mcp]'.") from None
         headers = ({"Authorization": "Bearer " + server["api_token"]}
