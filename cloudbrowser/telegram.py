@@ -5,6 +5,7 @@ import contextlib
 import json
 import time
 from pathlib import PurePosixPath
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -15,17 +16,23 @@ from .store import Store
 
 HELP = """Cloudbrowser — browser & produksi video di server
 
-Kirim instruksi biasa atau /run <pekerjaan>.
+Kirim instruksi biasa atau /run <pekerjaan> atau /newtask <pekerjaan>.
 /flow — buka Google Flow
 /capcut — buka CapCut
 /status — status pekerjaan
+/tasks — daftar 8 pekerjaan terbaru
+/health — health ringkas worker dan database
+/browser — status sesi Chromium tanpa menampilkan token URL
+/report <job_id> — status dan 5 audit event terakhir
 /screen — tangkapan layar browser
 /files — daftar file hasil/unggahan
 /agents — daftar agent A2A yang dibangun model
 /workflow <job_id> — langkah, delegasi dan hasil pemeriksaan
 /get <artifact_id> — ambil file
 /approve <id> atau /reject <id> — persetujuan tindakan
-/stop [job_id] — hentikan pekerjaan
+/stop [job_id] — hentikan pekerjaan (boleh dilanjutkan)
+/pause [job_id] — jeda tanpa mengulang aksi eksternal
+/cancel [job_id] — batalkan permanen
 /resume <job_id> [arahan] — lanjutkan setelah login/manual review
 /project <nama> — pilih konteks proyek yang terpisah
 /brief <catatan> — simpan arahan tetap proyek; /brief - menghapusnya
@@ -229,6 +236,31 @@ class TelegramService:
             rows = self.store.jobs()[:8]
             await self.notify(f"Model: {self.settings.ai_model}\nMode: {self.agent.mode}\nProyek: {self.store.get('current_project', 'default')}\n" +
                               ("\n".join(f"{j['id']} • {j['status']} • {j['goal'][:90]}" for j in rows) or "Belum ada pekerjaan."))
+        elif command == "/tasks":
+            rows = self.store.jobs()[:8]
+            await self.notify("\n".join(f"{j['id']} • {j['status']} • {j['goal'][:75]}" for j in rows)
+                              or "Belum ada pekerjaan.")
+        elif command == "/health":
+            try:
+                self.store._rows("SELECT 1")
+                database = "OK"
+            except Exception:
+                database = "ERROR"
+            worker = bool(self.agent.worker and not self.agent.worker.done() and not self.agent.closing)
+            await self.notify(f"Database: {database}\nWorker: {'OK' if worker else 'OFFLINE'}\n"
+                              f"Browser: {'ACTIVE' if self.agent.browser.context else 'NOT_STARTED'}\n"
+                              f"Studio: {'CONFIGURED' if self.agent.studio.enabled else 'DISABLED'}")
+        elif command == "/browser":
+            pages = self.agent.browser.context.pages if self.agent.browser.context else []
+            hosts = [urlsplit(page.url).hostname or "local/blank" for page in pages[:10]]
+            await self.notify("Browser: " + ("RUNNING" if self.agent.browser.context else "NOT_STARTED")
+                              + "\nTab domains: " + (", ".join(hosts) if hosts else "(none)"))
+        elif command == "/report":
+            job = self.store.job(argument)
+            events = self.store.events(argument)[:5]
+            await self.notify(f"Job {job['id']}: {job['status']}\n"
+                              + ("\n".join(f"{e['kind']}: {self.settings.redact(e['detail'])[:200]}"
+                                          for e in events) or "Belum ada audit event."))
         elif command == "/screen":
             screenshot = await self.agent.browser.screenshot()
             await self.client.call("sendPhoto", {"chat_id": str(self.settings.telegram_owner_id)},
@@ -254,9 +286,16 @@ class TelegramService:
             await self.send_artifact(argument)
         elif command in {"/approve", "/reject"}:
             await self.notify("Tercatat." if self.agent.decide(argument, command == "/approve") else "Persetujuan tidak aktif atau sudah diproses.")
-        elif command == "/stop":
-            self.agent.stop(argument or None)
-            await self.notify("Penghentian diminta.")
+        elif command in {"/stop", "/pause", "/cancel"}:
+            if command == "/stop":
+                self.agent.stop(argument or None)
+                await self.notify("Penghentian diminta.")
+            elif command == "/pause":
+                job = self.agent.pause(argument or None)
+                await self.notify(f"Job {job['id']}: pause diminta. Status akan diperbarui oleh worker.")
+            else:
+                job = self.agent.cancel(argument or None)
+                await self.notify(f"Job {job['id']}: pembatalan diminta. Tidak dapat di-resume.")
         elif command == "/mode":
             if argument not in {"auto", "approve"}:
                 raise ValueError("Gunakan /mode auto atau /mode approve.")
@@ -294,15 +333,15 @@ class TelegramService:
             site = "Google Flow di https://labs.google/fx/tools/flow" if command == "/flow" else "CapCut di https://www.capcut.com/my-edit"
             job = self.agent.enqueue(f"Buka {site}. Laporkan status halaman dan minta login manual jika diperlukan.", f"tg:{update['update_id']}")
             await self.notify(f"Job {job['id']} masuk antrean.")
-        elif command.startswith("/") and command != "/run":
+        elif command.startswith("/") and command not in {"/run", "/newtask"}:
             await self.notify("Perintah tidak dikenal. Gunakan /help.")
         elif text:
-            goal = argument if command == "/run" else text
+            goal = argument if command in {"/run", "/newtask"} else text
             previous = self.store.get(f"resume-request:tg:{update['update_id']}")
             waiting = [j for j in self.store.jobs(self.store.get("current_project", "default")) if j["status"] == "waiting_user"]
             if previous:
                 job = self.store.job(previous)
-            elif waiting and command != "/run" and not self.agent.busy:
+            elif waiting and command not in {"/run", "/newtask"} and not self.agent.busy:
                 job = self.agent.resume(waiting[0]["id"], goal, f"tg:{update['update_id']}")
             else:
                 job = self.agent.enqueue(goal, f"tg:{update['update_id']}")

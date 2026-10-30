@@ -324,6 +324,16 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
         agent.stop(job_id)
         return {"ok": True}
 
+    @app.post("/api/jobs/{job_id}/pause", dependencies=[Depends(sessions.require)])
+    async def pause(job_id: str):
+        job = agent.pause(job_id)
+        return {"id": job["id"], "status": job["status"], "accepted": True}
+
+    @app.post("/api/jobs/{job_id}/cancel", dependencies=[Depends(sessions.require)])
+    async def cancel(job_id: str):
+        job = agent.cancel(job_id)
+        return {"id": job["id"], "status": job["status"], "accepted": True}
+
     @app.post("/api/approvals/{approval_id}", dependencies=[Depends(sessions.require)])
     async def decide(approval_id: str, body: Decision):
         if not agent.decide(approval_id, body.approved):

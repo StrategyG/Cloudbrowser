@@ -117,6 +117,8 @@ class Agent:
         self.active_task: asyncio.Task | None = None
         self.worker: asyncio.Task | None = None
         self.waiters: dict[str, asyncio.Future] = {}
+        # Explicit operator intent is consumed by the active task on cancellation.
+        self.interruptions: dict[str, str] = {}
         self.control_lock = asyncio.Lock()
         self.notify: Callable[[str, dict | None], Awaitable[None]] | None = None
         self.deliver: Callable[[str], Awaitable[dict]] | None = None
@@ -181,7 +183,7 @@ class Agent:
         if (self.store._rows("SELECT job_id FROM a2a_inbox WHERE job_id=?", (job_id,))
                 and job["status"] in {"completed", "failed", "stopped"}):
             raise ValueError("A2A terminal tasks cannot be restarted. Create a new task.")
-        if job["status"] not in {"waiting_user", "interrupted", "stopped", "failed", "incomplete", "completed"}:
+        if job["status"] not in {"waiting_user", "interrupted", "stopped", "paused", "failed", "incomplete", "completed"}:
             raise ValueError("Job ini belum dapat dilanjutkan.")
         messages = repair_messages(json.loads(job["messages"]))
         if not messages:
@@ -195,15 +197,49 @@ class Agent:
         self.queued.add(job_id)
         return self.store.job(job_id)
 
-    def stop(self, job_id: str | None = None) -> None:
+    def _interrupt(self, job_id: str | None, status: str) -> dict:
+        """Operator-only cooperative interruption, never an implicit tool retry.
+
+        Cancellation of a running external mutation can leave an unknown effect.
+        _checked_tool records that case in the action ledger for reconciliation.
+        """
+        if status not in {"stopped", "paused", "cancelled"}:
+            raise ValueError("Invalid operator interruption.")
         job_id = job_id or self.active_job
         if not job_id:
-            raise ValueError("Tidak ada pekerjaan yang sedang berjalan.")
-        self.store.job(job_id)
-        if job_id == self.active_job and self.active_task:
+            raise ValueError("Sertakan job ID atau pilih pekerjaan aktif.")
+        job = self.store.job(job_id)
+        if job["status"] == status:
+            return job  # Duplicate command has no side effect.
+        allowed = {"queued", "running", "awaiting_approval", "waiting_user",
+                   "stopped", "paused", "interrupted", "incomplete", "failed"}
+        if job["status"] not in allowed:
+            raise ValueError("Job terminal atau tidak dapat dihentikan.")
+        if status != "cancelled" and job["status"] != "queued" and (
+                job_id != self.active_job and job["status"] not in
+                {"stopped", "paused", "interrupted", "waiting_user"}):
+            raise ValueError("Job tidak berjalan; gunakan /cancel jika ingin mengarsipkan.")
+        self.store.event(job_id, "owner_interrupt_requested", status)
+        if job_id == self.active_job and self.active_task and not self.active_task.done():
+            if job_id in self.interruptions:
+                raise ValueError("Perintah penghentian sebelumnya belum selesai.")
+            self.interruptions[job_id] = status
             self.active_task.cancel()
         else:
-            self.store.update_job(job_id, status="stopped", result="Dihentikan oleh pemilik.")
+            self.store.update_job(job_id, status=status,
+                                  result="Dibatalkan oleh pemilik." if status == "cancelled"
+                                  else "Ditunda oleh pemilik." if status == "paused"
+                                  else "Dihentikan oleh pemilik.")
+        return self.store.job(job_id)
+
+    def stop(self, job_id: str | None = None) -> None:
+        self._interrupt(job_id, "stopped")
+
+    def pause(self, job_id: str | None = None) -> dict:
+        return self._interrupt(job_id, "paused")
+
+    def cancel(self, job_id: str | None = None) -> dict:
+        return self._interrupt(job_id, "cancelled")
 
     def decide(self, approval_id: str, approved: bool) -> bool:
         future = self.waiters.get(approval_id)
@@ -227,7 +263,10 @@ class Agent:
                     except asyncio.CancelledError:
                         if self.closing:
                             raise
-                        self.store.update_job(job_id, status="stopped", result="Pekerjaan dihentikan.")
+                        target = self.interruptions.get(job_id, "stopped")
+                        self.store.update_job(job_id, status=target, result="Pekerjaan dihentikan.")
+                    finally:
+                        self.interruptions.pop(job_id, None)
             finally:
                 self.active_task = None
                 self.active_job = None
@@ -564,9 +603,12 @@ class Agent:
                 self._persist(job_id, messages, "incomplete", "Batas langkah tercapai. Periksa hasil lalu /resume jika diperlukan.")
                 await self._tell(f"Job {job_id}: batas {self.settings.max_steps} langkah tercapai; /resume {job_id} untuk melanjutkan.")
         except asyncio.CancelledError:
-            self._persist(job_id, repair_messages(messages), "interrupted" if self.closing else "stopped", "Pekerjaan dihentikan. Periksa browser sebelum melanjutkan.")
+            target = "interrupted" if self.closing else self.interruptions.get(job_id, "stopped")
+            self._persist(job_id, repair_messages(messages), target,
+                          "Aksi eksternal mungkin belum pasti. Rekonsiliasi sebelum melanjutkan.")
+            self.store.event(job_id, "operator_interruption", target)
             if not self.closing:
-                await self._tell(f"Job {job_id} dihentikan.")
+                await self._tell(f"Job {job_id}: {target}. Tinjau tindakan dengan hasil belum pasti sebelum melanjutkan.")
         except Exception as exc:
             error = self.settings.redact(str(exc))[:1500] or type(exc).__name__
             self._persist(job_id, repair_messages(messages), "failed", error)

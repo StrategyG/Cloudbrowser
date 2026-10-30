@@ -93,3 +93,35 @@ def test_unicode_chunks_fit_telegram_utf16_limit():
     chunks = text_chunks("🦊" * 5000)
     assert "".join(chunks) == "🦊" * 5000
     assert all(len(chunk.encode("utf-16-le")) // 2 <= 4096 for chunk in chunks)
+
+
+async def test_owner_lifecycle_commands_and_health_without_secrets(settings, make_agent):
+    bot, agent, client = service(settings, make_agent)
+    bot.settings.ai_api_key = "synthetic-ci-secret-never-real"
+    first = agent.store.create_job("Safe operation", "tg:queued")
+    await bot.handle(update("/pause " + first["id"], user=999, update_id=100))
+    assert agent.store.job(first["id"])["status"] == "queued"
+    await bot.handle(update("/pause " + first["id"], update_id=101))
+    assert agent.store.job(first["id"])["status"] == "paused"
+    await bot.handle(update("/health", update_id=102))
+    await bot.handle(update("/browser", update_id=103))
+    await bot.handle(update("/tasks", update_id=104))
+    await bot.handle(update("/report " + first["id"], update_id=105))
+    await bot.handle(update("/cancel " + first["id"], update_id=106))
+    assert agent.store.job(first["id"])["status"] == "cancelled"
+    assert any(item["kind"] == "owner_interrupt_requested"
+               and item["detail"] == "cancelled" for item in agent.store.events(first["id"]))
+    outputs = "\\n".join(str(payload) for method, payload in client.calls if method == "sendMessage")
+    assert "Database: OK" in outputs
+    assert "NOT_STARTED" in outputs
+    assert bot.settings.telegram_bot_token not in outputs
+    assert bot.settings.ai_api_key not in outputs
+
+
+async def test_newtask_command_is_idempotent(settings, make_agent):
+    bot, agent, _client = service(settings, make_agent)
+    await bot.handle(update("/newtask Build ARUSIA storyboard", update_id=150))
+    await bot.handle(update("/newtask Build ARUSIA storyboard", update_id=150))
+    rows = agent.store.jobs()
+    assert len(rows) == 1
+    assert rows[0]["goal"] == "Build ARUSIA storyboard"

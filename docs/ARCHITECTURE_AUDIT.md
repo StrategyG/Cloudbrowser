@@ -85,3 +85,16 @@ flowchart LR
 ```
 
 **Audit status:** source-verified architecture and code changes described separately. Successful CI is **not** equivalent to real Telegram-provider, external MCP, multi-user, or 12-minute episode acceptance. See `SECURITY_AUDIT.md`, `PRODUCTION_READINESS.md` and `UPGRADE_ROADMAP.md`.
+
+---
+
+## 2026-10-30 P0 lifecycle-control delta (branch: `feat/v5-p0-lifecycle-control`)
+
+| Finding | Severity | Source evidence | Impact | Implemented mitigation | Verification |
+| --- | --- | --- | --- | --- | --- |
+| V5-LC-01: operator pause/cancel absent as distinct states | HIGH | Baseline `agent.py` only offered resumable `stop`; `telegram.py` only exposed `/stop` | Cannot distinguish temporary pause from terminal cancellation | Explicit `paused` and `cancelled` outcomes; `Agent._interrupt` and persistent job state; requeue only on intentional resume | `python -m pytest -q tests/test_v5_lifecycle.py` |
+| V5-LC-02: terminal job may be overwritten by stop | HIGH | Baseline `Agent.stop` directly wrote `stopped` to any non-active job, including completed | Corrupts recorded completion / allows unauthorized continuation | Terminal guard rejects completed/cancelled jobs; duplicate same-intent requests return unchanged state | Tests in `tests/test_v5_lifecycle.py` |
+| V5-LC-03: no lifecycle API / Telegram parity | MEDIUM | `web.py` exposed `/stop` only; `telegram.py` lacked `/pause`, `/cancel`, `/tasks`, `/health` | Operators could not safely manage workflows from both gateways | Session + CSRF-protected API routes, private-owner Telegram commands, audit events and dialog buttons | `tests/test_telegram.py`, `tests/test_v5_lifecycle.py`, Chromium smoke |
+| V5-LC-04: interruption of uncertain external effects | HIGH | `_checked_tool` already writes `unknown` action ledger on cancellation after applying | Replaying effect may duplicate an external mutation | Preserve prior reconciliation barrier; cancellation never auto-resubmits an uncertain mutation | `tests/test_decisions.py` and new lifecycle tests |
+
+This increment **does not** introduce a new DAG planner, autonomous code execution, PostgreSQL migration, MCP fabric, multi-user isolation, full model router, or 12-minute ARUSIA rendering. The existing single-owner architecture remains the supported deployment boundary.

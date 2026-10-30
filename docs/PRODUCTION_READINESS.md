@@ -84,3 +84,19 @@ Scripts and CI may require Playwright installation and FFmpeg; see `docs/DEPLOYM
 ## Release risks (remaining)
 
 P0 fixes do not create PostgreSQL HA, MCP, tenant isolation, local model capability discovery, full-workflow cancel/resume, long-term RAG, automated natural motion QA or 12-minute ARUSIA episode production. Preserve owner approvals, keep the system behind a private authenticated gateway and treat external side effects as potentially ambiguous until reconciled.
+
+---
+
+## P0 lifecycle patch — incremental evidence register
+
+Baseline `main` at branch creation: `6deeb419013fd6d905a619fd12c9d0491bf744ab`; parent CI run `41048285322` reported success. This only establishes the **pre-change** baseline.
+
+| V5 acceptance mapping | Actual test command | Expected result | Status / evidence |
+| --- | --- | --- | --- |
+| TEST-003 recovery and controlled pause | `python -m pytest -q tests/test_v5_lifecycle.py tests/test_agent.py` | Paused jobs never replay queued effects; restart leaves terminal cancel terminal | Pending final feature-branch CI |
+| TEST-004 / TEST-005 policy + approval | `python -m pytest -q tests/test_v5_lifecycle.py tests/test_decisions.py` | Stopping an unapproved browser mutation does not execute it; audit event recorded | Pending final feature-branch CI |
+| TEST-006 request idempotency | `python -m pytest -q tests/test_v5_p0.py tests/test_v5_lifecycle.py` | Duplicate request yields same job; cancellation is stable | Pending final feature-branch CI |
+| TEST-001 Telegram control subset | `python -m pytest -q tests/test_telegram.py` | Only private configured owner can pause/cancel; health masks secrets | Pending final feature-branch CI; live Telegram→browser acceptance still BLOCKED |
+| TEST-012 deployment subset | `docker compose config -q` and `docker compose build` | No image/configuration regression | Pending final feature-branch CI; persistent deployment recovery still BLOCKED |
+
+**Scope:** Incremental implementation of pause/cancel lifecycle only. The full TEST-001, TEST-003 (process-kill), TEST-007 multi-user, TEST-009 external routing, TEST-011 approved ARUSIA character pilot, and TEST-012 deployed HA recovery remain **BLOCKED** or **NOT IMPLEMENTED**, irrespective of unit test results.

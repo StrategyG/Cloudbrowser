@@ -47,3 +47,15 @@
 - **Not verified in this audit:** production TLS/ports, secret manager, real MFA, multi-user isolation, MCP security, external-provider idempotency, penetration testing.
 
 **Security conclusion:** suitable for continued **single-owner, access-controlled pilot development** with a configured TLS gateway; **not security-certified** for general multi-user or autonomous high-risk operations. The P0 fixes close specific gaps but do not implement RBAC, OAuth, security event streaming or hardened production network policy.
+
+---
+
+## P0 lifecycle governance addendum
+
+| ID | Severity | Evidence | Security impact | Change | Verification |
+| --- | --- | --- | --- | --- | --- |
+| LC-S01 | HIGH | `agent.py::stop` previously accepted completed jobs | Completed evidence could be relabeled as stopped | Explicit terminal-state guard; permanent `cancelled` cannot be resumed | `tests/test_v5_lifecycle.py::test_cancel_active_approval_is_terminal` |
+| LC-S02 | HIGH | Owner-issued cancellation may occur while external side effect is in flight | Unknown effect cannot safely be retried | Existing `_checked_tool` action ledger remains authoritative and records `unknown`; no automatic replay during pause/cancel | `tests/test_decisions.py` |
+| LC-S03 | MEDIUM | New operator API and Telegram mutation entry points | CSRF or unauthorized chat could interrupt jobs | Dashboard routes use `sessions.require` and CSRF middleware; Telegram uses existing exact private-owner guard | `tests/test_v5_lifecycle.py`, `tests/test_telegram.py` |
+
+**Residual risks:** Python task cancellation is cooperative, not guaranteed preemption of an external process or remote API. Operator must reconcile any `unknown` action before submitting a replacement mutation. Web/API and Chromium still assume one owner. No role-based multi-tenant auth, cryptographic server-side secret vault, or guaranteed external exactly-once semantics have been added.
