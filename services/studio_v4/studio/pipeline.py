@@ -1,4 +1,5 @@
 """Pipeline stage execution. No shell invocation and no user-controlled filesystem paths."""
+import hashlib
 import json
 import os
 import subprocess
@@ -44,6 +45,8 @@ def run_job(job):
          str(folder/'mesh.glb'),str(folder/'rigged.glb'),str(folder/'rig_qa.json')],900)
    qa=json.loads((folder/'rig_qa.json').read_text())
    qa['gltf']=inspect(folder/'rigged.glb',require_skin=True)
+   with (folder/'rigged.glb').open('rb') as source:
+    qa['sha256']=hashlib.file_digest(source,'sha256').hexdigest()
    store.update_metadata(pid,rig_qa=qa)
    store.change_state(pid,'rig_building','rig_review')
   elif kind=='render':
