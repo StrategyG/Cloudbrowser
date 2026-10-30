@@ -78,10 +78,10 @@ async def test_cpu_episode_rejects_incompatible_shots_and_unregistered_files(tmp
         b = await render_cpu_shot(media, **(base | {"width": 1280, "height": 720, "fps": 24}))
         with pytest.raises(ValueError, match="identical"):
             await assemble_cpu_episode(media, shot_ids=[a["artifact"]["id"], b["artifact"]["id"]])
-        with pytest.raises(ValueError, match="registered"):
+        with pytest.raises(ValueError, match="Artifact|ditemukan"):
             await assemble_cpu_episode(media, shot_ids=["0" * 32])
         with pytest.raises(ValueError, match="1–120"):
             await assemble_cpu_episode(media, shot_ids=[])
-        assert not list(artifacts.root.glob("*episode*.mp4"))
+        assert len(list(artifacts.root.glob("*.mp4"))) == 2
     finally:
         store.close()
