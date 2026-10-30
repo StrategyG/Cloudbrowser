@@ -70,7 +70,7 @@ def main():
     assert final['metadata']['mesh_qa']['full_3d_reconstruction'] is False
     assert final['metadata']['rig_qa']['gltf']['skins']>=1
     assert final['metadata']['render_qa']['mp4_sha256']
-    assert final['metadata']['render_qa']['motion_quality_certified'] is False
+    assert final['metadata']['render_qa']['frame_content_qa']['motion_quality_certified'] is False
     media=client.get('/api/projects/'+pid+'/assets/mp4')
     media.raise_for_status()
     assert media.content[:4] != b''
