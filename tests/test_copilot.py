@@ -73,6 +73,15 @@ async def test_copilot_advisory_modes_block_mutation(make_agent):
         result = await agent._checked_tool(job["id"], "studio_start_stage",
                                            {"project_id": "a" * 32, "stage": "render"})
         assert "advisory" in result["error"]
+        for disallowed, args in (
+            ("compose_video", {"clip_ids": ["b" * 32]}),
+            ("render_storyboard", {"scenes": [{"title": "test", "text": "hello"}]}),
+            ("studio_import_asset", {"project_id": "a" * 32, "kind": "mesh"}),
+            ("browser_navigate", {"url": "https://example.com"}),
+            ("mcp_readonly_call", {"server_id": "docs", "tool_name": "search", "arguments": {}}),
+        ):
+            denied = await agent._checked_tool(job["id"], disallowed, args)
+            assert "advisory" in denied["error"], disallowed
         assert not agent.store.actions(job["id"])
     # Agent-mode work still traverses the existing owner approval boundary.
     assert TOOL_MAP["studio_approve_stage"].approval
