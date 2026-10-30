@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    command: ["uvicorn","cloudbrowser.api:app","--host","0.0.0.0","--port","8085"]
+    env_file: .env
+    volumes: ["cloudbrowser-data:/data"]
+    ports: ["127.0.0.1:8085:8085"]
+    restart: unless-stopped
+  worker:
+    build: .
+    command: ["python","-m","cloudbrowser.engine"]
+    env_file: .env
+    volumes: ["cloudbrowser-data:/data"]
+    restart: unless-stopped
+volumes:
+  cloudbrowser-data:
