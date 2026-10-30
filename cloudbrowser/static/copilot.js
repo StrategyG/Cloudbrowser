@@ -126,7 +126,7 @@
       const body = {
         project_id: project,
         prompt: $("copilot-prompt").value.trim(),
-        character: $("copilot-target").value.trim() || "KIO",
+        character: $("copilot-character").value,
         fps: 24, width: 1280, height: 720
       };
       const result = await call("/api/studio/projects/" + project + "/plan-preview", {
