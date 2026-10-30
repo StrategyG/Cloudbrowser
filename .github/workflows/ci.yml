@@ -4,6 +4,9 @@ on:
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: verify-cloudbrowser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -18,6 +21,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - run: python -m playwright install --with-deps chromium
       - run: python -m ruff check .
+      - name: Validate Codespaces CPU-only devcontainer
+        run: |
+          python -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/post-create.sh
       - run: node --check cloudbrowser/static/app.js
       - run: node --check cloudbrowser/static/morphglb-bridge.js
       - run: node --check cloudbrowser/static/copilot.js
@@ -26,6 +33,25 @@ jobs:
         env:
           CLOUDBROWSER_TEST_BROWSER: '1'
       - run: python scripts/smoke_a2a.py
+      - name: GPU-free CPU video production acceptance (real encode, concat, decode)
+        run: |
+          timeout 180s python scripts/cpu_production_acceptance.py \
+            --shot-seconds 3 --report /tmp/cpu-video-acceptance.json
+      - name: Twelve-minute synthetic 120-shot CPU episode release smoke
+        run: |
+          timeout 240s python scripts/cpu_production_acceptance.py \
+            --shot-seconds 6 --repeat-cycles 60 \
+            --report /tmp/cpu-video-12min-acceptance.json
+      - name: Upload CPU production acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-video-acceptance
+          path: |
+            /tmp/cpu-video-acceptance.json
+            /tmp/cpu-video-12min-acceptance.json
+          if-no-files-found: warn
+          retention-days: 7
   studio:
     runs-on: ubuntu-latest
     timeout-minutes: 30

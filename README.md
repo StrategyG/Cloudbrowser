@@ -183,6 +183,16 @@ dapat memerlukan bantuan operator. Dialog JavaScript native di-dismiss; modal HT
 Perubahan antarmuka website dapat memerlukan langkah manual. Keberhasilan render/export pada kedua
 layanan harus diuji dengan akun dan kuota yang akan dipakai.
 
+## Produksi CPU-only di GitHub Codespaces (tanpa GPU)
+
+Tool `render_cpu_shot` merender MP4 berdurasi 1–15 detik dari PNG latar dan
+1–8 pose PNG transparan. FFmpeg membuat animasi sprite/pose sederhana tanpa GPU,
+dengan cache SHA-256 untuk menghindari rendering ulang yang identik. Tool ini
+tersedia bagi orchestrator dan agent editor, dan hasilnya dapat dirakit melalui
+`compose_video`. Ini bukan generator 3D atau sistem lip-sync/IK; inspeksi visual
+masih wajib. **Lihat [panduan Codespaces CPU-only](docs/CODESPACES_CPU_VIDEO.md)**
+untuk instalasi, batas sumber daya, tes MP4 nyata dan workflow ARUSIA.
+
 ## Hasil dan produksi video
 
 - Naskah, shot list, prompt, JSON, subtitle SRT/VTT dapat disimpan sebagai file.
