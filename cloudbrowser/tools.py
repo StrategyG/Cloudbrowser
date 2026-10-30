@@ -118,7 +118,7 @@ class Tool:
 
 
 TOOLS = [
-    Tool("studio_create_project", "Create a Studio/Godot project from an uploaded transparent PNG artifact (2.5D silhouette, not full 3D).", StudioCreate, approval=True),
+    Tool("studio_create_project", "Create Studio/Godot project from uploaded transparent PNG (2.5D) or validated external GLB (true 3D). GLB enters mesh_review and requires owner mesh approval; do not rerun mesh stage.", StudioCreate, approval=True),
     Tool("studio_get_project", "Read Studio job state and actual mesh, rig and render QA. Poll with this tool; never repeat an uncertain mutation.", StudioProject),
     Tool("studio_start_stage", "Queue mesh, rig or Godot render. Rig/render require previously approved inputs. Render can take minutes; poll state.", StudioStage, approval=True),
     Tool("studio_plan_scene", "Create a supported one-character scene manifest, maximum 15 seconds. Uses local rules; 24/30/60 FPS.", StudioPlan, approval=True),
