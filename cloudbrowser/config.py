@@ -70,6 +70,9 @@ class Settings:
     a2a_peers: list[dict] = field(default_factory=list, repr=False)
     studio_base_url: str = ""
     studio_api_token: str = field(default="", repr=False)
+    rag_base_url: str = ""
+    rag_api_token: str = field(default="", repr=False)
+    mcp_servers: list[dict] = field(default_factory=list, repr=False)
 
     def validate(self) -> None:
         parsed = urlsplit(self.ai_base_url)
@@ -139,6 +142,40 @@ class Settings:
             if len(self.a2a_api_key) < 32:
                 raise ValueError("A2A API key must have at least 32 characters.")
             validate_agent_url(self.a2a_base_url)
+        if self.rag_base_url:
+            parsed = urlsplit(self.rag_base_url)
+            local = parsed.hostname in {"localhost", "127.0.0.1", "::1", "rag-api", "host.docker.internal"}
+            if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username
+                    or parsed.password or parsed.path not in {"", "/"} or parsed.query
+                    or parsed.fragment or (parsed.scheme == "http" and not local)
+                    or len(self.rag_api_token) < 32):
+                raise ValueError("RAG requires a local or HTTPS origin and 32+ character token.")
+        elif self.rag_api_token:
+            raise ValueError("RAG token requires rag_base_url.")
+        if not isinstance(self.mcp_servers, list) or len(self.mcp_servers) > 8:
+            raise ValueError("Maximum eight administrator-configured MCP servers.")
+        mcp_ids = set()
+        for server in self.mcp_servers:
+            if not isinstance(server, dict):
+                raise ValueError("MCP server configuration must be a dictionary.")
+            sid, url, names = server.get("id"), server.get("url"), server.get("read_tools")
+            if (not isinstance(sid, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,39}", sid)
+                    or sid in mcp_ids or not isinstance(url, str)):
+                raise ValueError("MCP servers require unique IDs and valid URLs.")
+            parsed = urlsplit(url)
+            local = parsed.hostname in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+            if (parsed.scheme not in {"https", "http"} or not parsed.hostname
+                    or parsed.username or parsed.password or parsed.query or parsed.fragment
+                    or (parsed.scheme == "http" and not local)):
+                raise ValueError("MCP endpoint requires HTTPS except approved loopback hosts.")
+            if (not isinstance(names, list) or not names or len(names) > 30
+                    or any(not isinstance(n, str)
+                           or not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{0,79}", n) for n in names)
+                    or len(names) != len(set(names))):
+                raise ValueError("MCP read_tools must be an explicit unique allowlist.")
+            if not isinstance(server.get("api_token", ""), str):
+                raise ValueError("MCP server api_token must be a string.")
+            mcp_ids.add(sid)
         peer_ids = set()
         if len(self.a2a_peers) > 8:
             raise ValueError("Maximum eight configured remote agents.")
@@ -150,8 +187,9 @@ class Settings:
             peer_ids.add(peer["id"])
 
     def redact(self, value: str) -> str:
-        for secret in (self.ai_api_key, self.telegram_bot_token, self.session_secret, self.a2a_api_key, self.studio_api_token,
-                       *(peer.get("api_key", "") for peer in self.a2a_peers)):
+        for secret in (self.ai_api_key, self.telegram_bot_token, self.session_secret, self.a2a_api_key, self.studio_api_token, self.rag_api_token,
+                       *(peer.get("api_key", "") for peer in self.a2a_peers),
+                       *(server.get("api_token", "") for server in self.mcp_servers if isinstance(server, dict))):
             if secret:
                 value = value.replace(secret, "[REDACTED]")
         return value
@@ -168,6 +206,8 @@ def load_settings(directory: Path) -> Settings:
     settings.a2a_api_key = os.environ.get("CLOUDBROWSER_A2A_API_KEY", settings.a2a_api_key)
     settings.studio_base_url = os.environ.get("CLOUDBROWSER_STUDIO_URL", settings.studio_base_url)
     settings.studio_api_token = os.environ.get("CLOUDBROWSER_STUDIO_TOKEN", settings.studio_api_token)
+    settings.rag_base_url = os.environ.get("CLOUDBROWSER_RAG_URL", settings.rag_base_url)
+    settings.rag_api_token = os.environ.get("CLOUDBROWSER_RAG_TOKEN", settings.rag_api_token)
     if settings.public_origin:
         settings.secure_cookie = True
     settings.validate()

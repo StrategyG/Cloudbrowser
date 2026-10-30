@@ -1,3 +1,18 @@
+## Private Knowledge RAG + MCP (optional, Cloudbrowser v5)
+
+Cloudbrowser now includes a gated **MCP Python SDK 2.3.0** client and an opt-in **local-only RAG worker**. RAG uses Docling, LlamaIndex Core, a local 384-dimensional embedding model, and PostgreSQL/pgvector. The core browser and Studio workflows remain independent of the knowledge services; startup does not silently download AI models or call external RAG providers.
+
+- `rag_search`: retrieve source IDs, chunk IDs and SHA-256 evidence scoped to the active workflow project.
+- `rag_ingest_artifact`: index an uploaded PDF/Markdown/text artifact after owner approval.
+- `mcp_list_tools`: list explicitly allowlisted tools on an administrator-configured server.
+- `mcp_readonly_call`: call an approved MCP read-only tool **only after owner approval**, preserving the action ledger for uncertain effects.
+
+These are implemented interfaces and verified contracts; an actual offline embedding model and the RAG deployment are still required before live document retrieval works. No external MCP server is auto-installed, and no arbitrary MCP write tool is enabled.
+
+Read **[Private RAG + MCP setup, security contract and acceptance evidence](docs/KNOWLEDGE_MCP.md)**. Use `docker compose -f compose.yaml -f compose.knowledge.yaml --profile knowledge up -d --build` only after provisioning a 384-d local model and the required secrets.
+
+---
+
 # Cloudbrowser A2A + Studio 0.4
 
 Browser dan agent produksi video di server, dikendalikan melalui **Telegram** dan dashboard privat.

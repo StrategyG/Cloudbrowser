@@ -1,0 +1,57 @@
+# Optional profile; never publishes PostgreSQL or RAG API host ports.
+services:
+  cloudbrowser:
+    environment:
+      CLOUDBROWSER_RAG_URL: http://rag-api:8090
+      CLOUDBROWSER_RAG_TOKEN: ${RAG_API_TOKEN:?set a private RAG_API_TOKEN of at least 32 characters}
+    # Operator installs MCP SDK through the standard base requirements.lock.
+    networks: [default, knowledge_internal]
+  rag-api:
+    profiles: ["knowledge"]
+    build: ./services/rag_v1
+    restart: unless-stopped
+    environment:
+      RAG_API_TOKEN: ${RAG_API_TOKEN:?set a private RAG_API_TOKEN}
+      RAG_DATABASE_URL: postgresql://rag:${RAG_DB_PASSWORD:?set RAG_DB_PASSWORD}@rag-db:5432/knowledge
+      RAG_EMBEDDING_MODEL_PATH: /models/embedding
+      RAG_MODEL_REVISION: ${RAG_MODEL_REVISION:-minilm-l12-v1}
+    depends_on:
+      rag-db:
+        condition: service_healthy
+    volumes:
+      - ${RAG_EMBEDDING_DIR:?set a local embedding directory}:/models/embedding:ro
+    mem_limit: 5g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    networks: [knowledge_internal]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz',timeout=5)"]
+      interval: 30s
+      retries: 3
+      start_period: 120s
+  rag-db:
+    profiles: ["knowledge"]
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${RAG_DB_PASSWORD:?set private DB password}
+      POSTGRES_DB: knowledge
+    volumes:
+      - rag_knowledge_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d knowledge"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [knowledge_internal]
+networks:
+  knowledge_internal:
+    internal: true
+volumes:
+  rag_knowledge_data:

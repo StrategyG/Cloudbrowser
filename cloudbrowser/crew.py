@@ -23,6 +23,8 @@ PROFILES = {
 }
 PROFILES["editor"] |= {name for name in TOOL_MAP if name.startswith("studio_")}
 PROFILES["reviewer"].add("studio_get_project")
+PROFILES["reviewer"].add("rag_search")
+PROFILES["writer"].add("rag_search")
 STATES = {name: getattr(TaskState, "TASK_STATE_" + name.upper())
           for name in ("submitted", "working", "completed", "failed", "canceled", "input_required")}
 SPECIALIST_SYSTEM = """You are a scoped Cloudbrowser specialist. Work only on your assigned task.
@@ -186,7 +188,9 @@ class Crew:
         messages.append({"role": "user", "content": task + "\nInput artifact IDs: " + json.dumps(inputs)})
         outputs = json.loads(row["outputs"])
         self.save_task(task_id, status="working", messages=messages, review={})
-        allowed = PROFILES[definition["profile"]]
+        allowed = set(PROFILES[definition["profile"]])
+        if not (self.settings.rag_base_url and self.settings.rag_api_token):
+            allowed.discard("rag_search")
         try:
             for _ in range(self.settings.agent_max_steps):
                 api_messages = [{"role": "system", "content": SPECIALIST_SYSTEM + "\nSpecialty: " + definition["instructions"]}] + api_history(messages)
