@@ -18,7 +18,7 @@ from .verification import Verifier
 PROFILES = {
     "writer": {"write_text_artifact", "read_text_artifact", "list_artifacts", "ask_user"},
     "browser": {name for name in TOOL_MAP if name.startswith("browser_")} | {"read_text_artifact", "list_artifacts", "ask_user"},
-    "editor": {"compose_video", "render_storyboard", "write_text_artifact", "read_text_artifact", "list_artifacts", "ask_user"},
+    "editor": {"compose_video", "render_storyboard", "render_cpu_shot", "write_text_artifact", "read_text_artifact", "list_artifacts", "ask_user"},
     "reviewer": {"read_text_artifact", "list_artifacts", "inspect_artifact", "ask_user"},
 }
 PROFILES["editor"] |= {name for name in TOOL_MAP if name.startswith("studio_")}
