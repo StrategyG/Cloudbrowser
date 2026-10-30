@@ -4,11 +4,11 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from fastapi.testclient import TestClient
-
 from conftest import tool_call
-from cloudbrowser.web import create_app
+from fastapi.testclient import TestClient
 from test_web import login
+
+from cloudbrowser.web import create_app
 
 
 async def until(predicate, timeout=5):
