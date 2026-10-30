@@ -8,6 +8,7 @@ from . import store
 from .settings import DATA_ROOT, BLENDER, FFMPEG
 from .mesh import generate_mesh
 from .godot_render import render as godot_render
+from .render_gate import verify_render_inputs
 from .gltf_qa import inspect
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -50,7 +51,15 @@ def run_job(job):
    store.update_metadata(pid,rig_qa=qa)
    store.change_state(pid,'rig_building','rig_review')
   elif kind=='render':
+   expected=verify_render_inputs(pid)
    render_qa=godot_render(folder,run)
+   # The model/manifest could have changed during a long render. Never publish
+   # an artifact with uncertain provenance after a time-of-check/use race.
+   if verify_render_inputs(pid)!=expected:
+    raise RuntimeError('Render inputs changed during execution')
+   with (folder/'output.mp4').open('rb') as output:
+    render_qa['mp4_sha256']=hashlib.file_digest(output,'sha256').hexdigest()
+   render_qa['input_sha256']=expected
    store.update_metadata(pid,render_qa=render_qa)
    store.change_state(pid,'rendering','completed')
   else: raise ValueError(f'Unknown job kind {kind}')

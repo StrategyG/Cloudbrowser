@@ -146,7 +146,20 @@ def motion_qa(pid:str):
 
 @app.get('/api/projects/{pid}/assets/{asset_type}')
 def fetch_asset(pid:str,asset_type:str):
- project_or_404(pid)
+ project=project_or_404(pid)
+ # A failed/interrupted render may leave a plausible stale output.mp4 on disk.
+ # Do not disclose a video that has not passed this project's final QA.
+ if asset_type=='mp4':
+  if project['state']!='completed':
+   raise HTTPException(409,'Video has not passed final project verification')
+  expected=json.loads(project['metadata']).get('render_qa',{}).get('mp4_sha256')
+  path=DATA_ROOT/pid/'output.mp4'
+  if not expected or not path.is_file():
+   raise HTTPException(409,'Missing verified MP4 checksum')
+  with path.open('rb') as handle:
+   actual=hashlib.file_digest(handle,'sha256').hexdigest()
+  if actual!=expected:
+   raise HTTPException(409,'Verified MP4 changed since QA')
  items={'png':('source.png','image/png'), 'mesh':('mesh.glb','model/gltf-binary'),
         'rig_rest':('rig_pose_rest.png','image/png'), 'rig_arms':('rig_pose_arms.png','image/png'),
         'rig_legs':('rig_pose_legs.png','image/png'), 'rig_combo':('rig_pose_combo.png','image/png'),

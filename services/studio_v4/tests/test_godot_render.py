@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from studio.godot_render import (prepare, godot_commands, probe_video, validate_video,
+from studio.godot_render import (prepare, godot_commands, probe_video, validate_frame_content, validate_video,
                                 render as godot_render)
 from studio.manifest import Manifest, Shot
 
@@ -67,7 +67,7 @@ def test_integration_ffmpeg_after_fake_godot(tmp_path):
         if '--write-movie' in command:
             movie = command[command.index('--write-movie') + 1]
             subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y',
-                            '-f', 'lavfi', '-i', 'color=c=blue:s=640x360:r=24:d=1',
+                            '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=24:duration=1',
                             '-frames:v', '24', '-c:v', 'mjpeg', '-q:v', '4', movie],
                            check=True, timeout=40)
             return
@@ -76,6 +76,30 @@ def test_integration_ffmpeg_after_fake_godot(tmp_path):
     assert qa['engine'] == 'godot_4'
     assert qa['frames'] == 24
     assert qa['mp4_qa']['codec'] == 'h264'
+    assert qa['frame_content_qa']['content_not_blank'] is True
+    assert qa['frame_content_qa']['motion_quality_certified'] is False
     assert (tmp_path / 'output.mp4').stat().st_size > 1024
     assert not (tmp_path / 'render.avi').exists()
     assert len(calls) == 3
+
+
+def test_frame_content_qa_rejects_uniform_video(tmp_path):
+    mp4 = tmp_path / "flat.mp4"
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                    "-f", "lavfi", "-i", "color=c=blue:s=640x360:r=24:d=1",
+                    "-frames:v", "24", "-c:v", "libx264", str(mp4)],
+                   check=True, timeout=45)
+    with pytest.raises(RuntimeError, match="blank or nearly uniform"):
+        validate_frame_content(mp4, 24)
+
+
+def test_frame_content_qa_checks_three_frames(tmp_path):
+    mp4 = tmp_path / "moving.mp4"
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                    "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24:duration=1",
+                    "-frames:v", "24", "-c:v", "libx264", str(mp4)],
+                   check=True, timeout=45)
+    qa = validate_frame_content(mp4, 24)
+    assert qa["sampled_frames"] == [0, 12, 23]
+    assert qa["content_not_blank"] is True
+    assert qa["motion_quality_certified"] is False
