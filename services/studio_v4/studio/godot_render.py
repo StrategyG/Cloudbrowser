@@ -106,7 +106,7 @@ def validate_frame_content(path: Path, frame_count: int, ffmpeg: str | None = No
     points = sorted({0, frame_count // 2, frame_count - 1})
     width, height = 160, 90
     # Select by zero-based decoded index. No user-controlled filter arguments.
-    expression = "+".join("eq(n\\\\," + str(index) + ")" for index in points)
+    expression = "+".join("eq(n\\," + str(index) + ")" for index in points)
     command = [
         ffmpeg or FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(path),
         "-an", "-vf", "select=" + expression + ",scale=160:90,format=gray",
