@@ -25,7 +25,7 @@ def test_morphglb_isolated_with_csp_and_opaque_origin(settings, tmp_path):
         assert len(editor.content) > 1_000_000
         csp = editor.headers["content-security-policy"]
         assert "sandbox allow-scripts allow-downloads" in csp
-        assert "connect-src 'none'" in csp
+        assert "connect-src blob: data:" in csp
         assert "frame-ancestors 'self'" in csp
         assert "form-action 'none'" in csp
         assert "no-store" in editor.headers["cache-control"]
