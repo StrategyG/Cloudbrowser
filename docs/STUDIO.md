@@ -1,5 +1,41 @@
 # Studio/Godot in Cloudbrowser 0.4
 
+## External GLB → Studio/Godot (review-gated)
+
+Cloudbrowser now accepts local **PNG or GLB** as the source artifact in
+`studio_create_project`. In MorphGLB, export a GLB and select **Buat job A2A**
+when importing it into the Cloudbrowser catalog. The owner approves each
+mutating A2A tool call as before. Alternatively, ask the agent to create a
+Studio project from an existing GLB artifact ID.
+
+- PNG continues through `uploaded → mesh_building → mesh_review`.
+- External GLB is validated on upload and starts at `mesh_review`. The mesh
+  stage **must not** be retried; no mesh is automatically approved.
+- After explicit mesh approval, `rig` creates a Blender humanoid template
+  if the imported mesh has no existing skin. The original source GLB stays
+  unchanged in `mesh.glb`.
+- If the GLB contains a valid existing skin, Blender inspects the armature
+  and produces rest/arms/legs/combo pose previews. The original skinned
+  GLB is preserved as `rigged.glb`, not silently re-rigged.
+- The rig still requires owner inspection/approval. A scene manifest, render
+  and completed MP4 follow the existing approval and frame-QA workflow.
+
+**Current import boundaries:** one **watertight**, consistently wound,
+positive-volume, connected triangle mesh; a single GLB primitive and at most
+one skin; embedded buffers/textures only; no required extensions, external
+URIs or embedded GLB animations; at most 600k vertices and 50 MiB. Compatible
+skinned assets must have `UpperArm_L`, `UpperArm_R`, `UpperLeg_L`, and
+`UpperLeg_R` bones, valid vertex weights and one bound armature.
+Mesh/rig numeric checks are not an animation or likeness guarantee.
+Incompatible rigs **fail** instead of automatically replacing authored
+bones; repair the rig in MorphGLB/Blender before reimport.
+
+The Godot procedural runner still supports one actor with idle/walk/wave/jump
+and does not play imported GLB animation tracks. Imported 3D assets are
+**not** asserted to have accurate foot locking, retopology or professional
+deformation. Real Blender four-pose previews, Godot asset import, video frame
+QA, and independent visual approval remain the production release gates.
+
 ## MorphGLB AI Studio v3.3.0 (integrated editor)
 
 Cloudbrowser serves the exact standalone editor supplied by the project owner as
@@ -18,14 +54,14 @@ from third-party CDNs. Browser hardware/WebGL/WebCodecs compatibility varies.
 2. Under the iframe, select the exported file and click **Impor aset ke Cloudbrowser**.
 3. The authenticated parent checks its extension, size and basic file signature, then
    registers it using `PUT /api/artifacts` with a session CSRF token.
-4. For a **PNG only**, optionally select **Buat job A2A** and provide a prompt. The job
+4. For a **PNG or GLB**, optionally select **Buat job A2A** and provide a prompt. The job
    enters the existing A2A queue and requires the normal human approvals.
 
 Limits at the bridge: PNG 12 MiB, GLB 50 MiB, JSON 2 MiB (also bounded by the configured
 Cloudbrowser server upload limit). The original editor's optional local AI endpoints
 such as `/api/tripo` are **not** implemented by Cloudbrowser. GLB is registered as
-an artifact; the bundled Studio/Godot service **does not yet ingest external GLB**.
-Registration is not mesh validation, full 3D reconstruction or a completed video.
+an artifact; the bundled Studio/Godot service ingests only **validated, review-gated** GLB.
+Registration alone is not mesh validation, full 3D reconstruction or a completed video.
 There is deliberately no automatic API-key sharing or silent enqueue.
 
 ### Isolation and security
@@ -123,7 +159,7 @@ worker from reclaiming the first worker's running jobs in the same workspace.
 ## Limits and release gate
 
 - One character, maximum 15 seconds/900 frames, 24/30/60 FPS, 640×360, 1280×720 or 1920×1080.
-- PNG conversion is a silhouette shell; external rigged GLB upload is not implemented.
+- PNG conversion remains a silhouette shell. External GLB upload has strict one-mesh, topology, single-rig and pose-review gates.
 - Walking is procedural. Foot IK, foot lock, lip sync, facial acting and multi-character scenes
   remain outside the current renderer. Rendered clips have no generated narration or soundtrack.
 - This is an animation pipeline; it does not add a nonlinear video timeline/audio mixer.
