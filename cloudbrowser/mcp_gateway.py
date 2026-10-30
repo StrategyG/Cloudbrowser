@@ -45,13 +45,32 @@ class MCPGateway:
                                                     http_client=transport_client)) as session:
                 yield session
 
+    @staticmethod
+    async def _tools(client) -> list:
+        """MCP 2.3 pagination; never trust an unbounded remote catalog."""
+        cursor = None
+        seen = set()
+        found = []
+        for _ in range(10):
+            page = await client.list_tools(cursor=cursor)
+            found.extend(page.tools)
+            if len(found) > 128:
+                raise ValueError("MCP server advertises too many tools.")
+            cursor = page.next_cursor
+            if not cursor:
+                return found
+            if cursor in seen:
+                raise ValueError("MCP server returned a repeated pagination cursor.")
+            seen.add(cursor)
+        raise ValueError("MCP tool pagination exceeded safety limits.")
+
     async def list_tools(self, server_id: str) -> dict:
         if server_id not in self.servers:
             raise ValueError("Unknown MCP server.")
         server = self.servers[server_id]
         async with asyncio.timeout(35):
             async with self._connect(server) as client:
-                discovered = await client.list_all_tools()
+                discovered = await self._tools(client)
         approved = set(server["read_tools"])
         return {"server_id": server_id, "tools": [
             {"name": tool.name, "description": (tool.description or "")[:400],
@@ -64,7 +83,7 @@ class MCPGateway:
             raise ValueError("MCP arguments must be a JSON object of at most 8000 characters.")
         async with asyncio.timeout(35):
             async with self._connect(server) as client:
-                discovered = await client.list_all_tools()
+                discovered = await self._tools(client)
                 match = next((tool for tool in discovered if tool.name == tool_name), None)
                 if match is None:
                     raise ValueError("Approved MCP tool not advertised by connected server.")
