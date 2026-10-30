@@ -156,7 +156,19 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
                     return JSONResponse({"detail": "A2A payload exceeds 256 KiB."}, status_code=413)
             request._body = body
         response = await call_next(request)
-        response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+        if request.url.path == "/studio/morphglb":
+            # Sandboxed even on direct navigation: third-party editor code has an opaque
+            # origin and cannot access dashboard cookies, CSRF tokens or owner APIs.
+            response.headers["Content-Security-Policy"] = (
+                "sandbox allow-scripts allow-downloads; default-src 'none'; "
+                "script-src 'unsafe-inline' 'wasm-unsafe-eval' blob:; "
+                "style-src 'unsafe-inline'; img-src data: blob:; "
+                "media-src blob:; worker-src blob:; font-src data:; "
+                "connect-src 'none'; object-src 'none'; frame-ancestors 'self'; "
+                "base-uri 'none'; form-action 'none'"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Cache-Control"] = "no-store"
@@ -229,6 +241,12 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
     @app.get("/studio", dependencies=[Depends(sessions.require)])
     def studio_editor():
         return FileResponse(static / "studio.html")
+
+    @app.get("/studio/morphglb", dependencies=[Depends(sessions.require)])
+    def morphglb_editor():
+        # Deliberately outside /static: raw editor must not be publicly fetchable.
+        document = Path(__file__).parent / "morphglb" / "MorphGLB_AI_Studio_v3.3.0.html"
+        return FileResponse(document, media_type="text/html")
 
     @app.get("/api/studio/projects/{project_id}", dependencies=[Depends(sessions.require)])
     async def studio_project(project_id: str):
