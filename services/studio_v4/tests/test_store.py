@@ -5,6 +5,15 @@ import pytest
 from studio import store
 
 
+def test_pipeline_rejects_godot_script_error_with_zero_exit(monkeypatch):
+    import subprocess
+    from studio import pipeline
+    monkeypatch.setattr(subprocess, 'run', lambda *args, **kwargs: subprocess.CompletedProcess(
+        args[0], 0, stdout='SCRIPT ERROR: Parse Error: Missing function', stderr=''))
+    with pytest.raises(RuntimeError, match='SCRIPT ERROR'):
+        pipeline.run(['godot', '--import'], timeout=5)
+
+
 def test_enqueue_state_and_job_are_atomic():
     store.init()
     pid = store.create_project('atomic', 'test-hash')

@@ -15,7 +15,10 @@ def run(cmd,timeout):
  # Prevent UI/web thread from running arbitrary commands. Arguments originate from trusted code.
  result=subprocess.run(cmd,timeout=timeout,capture_output=True,text=True,check=False,
                        env={**os.environ,'PYTHONUNBUFFERED':'1'})
- if result.returncode: raise RuntimeError(f'Process exit {result.returncode}: {(result.stderr or result.stdout)[-3500:]}')
+ output=(result.stdout or '')+'\n'+(result.stderr or '')
+ # Godot editor import can return zero even when a scene script did not compile.
+ if result.returncode or any(marker in output for marker in ('SCRIPT ERROR:', 'Parse Error:', 'STUDIO_GODOT_ERROR:')):
+  raise RuntimeError(f'Process exit {result.returncode}: {output[-3500:]}')
 
 def run_job(job):
  pid=job['project_id']; kind=job['kind'];folder=DATA_ROOT/pid

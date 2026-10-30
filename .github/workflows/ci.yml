@@ -39,7 +39,7 @@ jobs:
           STUDIO_API_TOKEN: ci-only-placeholder-token-at-least-32-characters
       - run: docker build -t cloudbrowser-studio services/studio_v4
       - name: Parse Godot project in built image
-        run: docker run --rm --entrypoint sh cloudbrowser-studio -c 'cp -R /app/godot_project /tmp/godot-check && godot --headless --editor --path /tmp/godot-check --import --quit'
+        run: docker run --rm --entrypoint python cloudbrowser-studio scripts/check_godot.py
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 20

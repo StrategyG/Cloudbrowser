@@ -117,6 +117,8 @@ func setup_camera() -> void:
     camera.size = 3.6
     camera.current = true
     add_child(camera)
+
+func setup_environment() -> void:
     env_node = WorldEnvironment.new()
     env_node.name = "WorldEnvironment"
     var environment := Environment.new()

@@ -23,6 +23,7 @@ COPY requirements.lock .
 RUN pip install --no-cache-dir -r requirements.lock
 COPY studio studio
 COPY workers workers
+COPY scripts scripts
 COPY godot_project godot_project
 COPY web web
 RUN useradd --create-home --uid 10001 studio && mkdir -p /app/workspace && chown studio:studio /app/workspace

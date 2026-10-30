@@ -3,7 +3,7 @@
 ## 0.4 integration verification — 30 October 2026
 
 - Root suite: **92 passed, 2 skipped**. Two skipped tests require actual Chromium.
-- Separate clean Studio virtual environment from its lock file: **13 passed**.
+- Separate clean Studio virtual environment from its lock file: **14 passed**.
 - Ruff, frontend JS syntax, shell syntax and whitespace checks: passed.
 - Real A2A 1.0 loopback HTTP, owner dashboard authentication and real result download: passed.
 - Actual Studio ASGI service, PNG upload, mesh generation, QA, explicit stage approval and GLB import:

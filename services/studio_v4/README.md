@@ -19,6 +19,6 @@ pip install -r requirements.lock
 STUDIO_DATA_ROOT=/tmp/studio-test-workspace python -m pytest -q tests
 ```
 
-The latest clean-install service run passed 13 tests. Actual Godot/Blender render and visual
+The latest clean-install service run passed 14 tests. Actual Godot/Blender render and visual
 acceptance remain outstanding; see the repository validation record. TEST_REPORT.md preserves
 the upstream package's earlier test record and its explicit limitations.

@@ -9,6 +9,8 @@
 - Make Studio queue/state insertion atomic; enforce one worker per workspace with an OS lease.
 - Add optional Compose stack, private automatic service token, nonroot renderer and verified Godot download.
 - Add clean-install integration tests and separate Studio CI/container checks.
+- Fix Chromium namespace chroot under dropped capabilities and make manual password tests choose their caret.
+- Fix the missing Godot environment initializer and reject script parse errors even on zero process exit.
 
 Actual Godot/Blender rendering and live AI/Google Flow/CapCut remain unverified locally.
 
