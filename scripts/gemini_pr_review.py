@@ -105,6 +105,16 @@ def should_defer_gemini_status(status: object) -> bool:
     return type(status) is int and status in TRANSIENT_GEMINI_HTTP_CODES
 
 
+def fail_transient_gemini_review(status: int) -> None:
+    """Emit a clear defer notice and fail the check: no AI review exists."""
+    print(
+        "::warning title=Gemini review deferred::"
+        f"Temporary Gemini HTTP {status}; no review was created. "
+        "Rerun the workflow after recovery or seek human review."
+    )
+    raise SystemExit(75)
+
+
 def main() -> None:
     repo = os.environ["REPOSITORY"]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
@@ -153,12 +163,7 @@ def main() -> None:
     except errors.APIError as exc:
         status = getattr(exc, "code", None)
         if should_defer_gemini_status(status):
-            print(
-                "::warning title=Gemini review deferred::"
-                f"Gemini returned temporary HTTP {status}; no review was created. "
-                "Rerun this workflow when the provider recovers."
-            )
-            return
+            fail_transient_gemini_review(status)
         raise
     review = (result.text or "").strip()
     if not review:
