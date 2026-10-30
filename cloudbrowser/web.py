@@ -191,8 +191,23 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
 
     @app.get("/readyz")
     def ready():
-        healthy = not telegram or (telegram.task and not telegram.task.done() and time.time() - telegram.last_poll < 90)
-        return JSONResponse({"ready": bool(healthy)}, status_code=200 if healthy else 503)
+        """Operational readiness, not a claim that a browser or model job succeeded.
+
+        Excludes secret material, session IDs, data paths and provider response bodies.
+        """
+        checks = {"database": False, "worker": False, "telegram": telegram is None}
+        try:
+            checks["database"] = bool(store._rows("SELECT 1 AS alive"))
+        except Exception:
+            checks["database"] = False
+        checks["worker"] = bool(start_services and agent.worker and not agent.worker.done()
+                                and not agent.closing)
+        if telegram is not None:
+            checks["telegram"] = bool(telegram.task and not telegram.task.done()
+                                      and time.time() - telegram.last_poll < 90)
+        healthy = all(checks.values())
+        return JSONResponse({"ready": healthy, "checks": checks},
+                            status_code=200 if healthy else 503)
 
     @app.post("/api/login")
     def login(body: Login, request: Request, response: Response):
