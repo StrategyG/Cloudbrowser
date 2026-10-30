@@ -19,6 +19,7 @@ from .agent import Agent
 from .artifacts import Artifacts
 from .browser import Browser
 from .config import Settings, password_matches
+from .copilot import CopilotRequest, catalog, install_specialists, make_goal
 from .llm import AIClient
 from .media import Media
 from .store import Store
@@ -288,6 +289,30 @@ def create_app(settings: Settings, directory: Path, *, start_services: bool = Tr
         job = agent.enqueue(body.text, request_key=("web:" + body.idempotency_key) if body.idempotency_key else None,
                             project_id=body.project_id)
         return {"id": job["id"], "status": job["status"]}
+
+    @app.get("/api/copilot/agents", dependencies=[Depends(sessions.require)])
+    def copilot_agents():
+        return {"agents": catalog(store), "studio_enabled": agent.studio.enabled}
+
+    @app.post("/api/copilot/jobs", dependencies=[Depends(sessions.require)])
+    async def copilot_job(body: CopilotRequest):
+        # The iframe is isolated: use server-verified Studio state and registered
+        # artifacts as explicitly scoped, still-untrusted model context.
+        if body.artifact_id:
+            store.artifact(body.artifact_id)
+        verified = None
+        if body.studio_project_id:
+            verified = await agent.studio.execute(
+                "studio_get_project", {"project_id": body.studio_project_id})
+        if body.mode == "edit" and not agent.studio.enabled:
+            raise ValueError("Edit mode requires configured Studio/Godot service.")
+        goal = make_goal(body, verified)
+        if body.mode != "chat":
+            install_specialists(agent.crew)
+        job = agent.enqueue(goal, request_key="copilot:" + body.idempotency_key,
+                            project_id=body.project_id)
+        return {"id": job["id"], "status": job["status"],
+                "project_id": body.project_id, "mode": body.mode}
 
     @app.get("/api/jobs/{job_id}", dependencies=[Depends(sessions.require)])
     def get_job(job_id: str):
