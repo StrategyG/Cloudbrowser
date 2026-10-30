@@ -30,8 +30,18 @@ def run_job(job):
    store.update_metadata(pid,mesh_qa=qa)
    store.change_state(pid,'mesh_building','mesh_review')
   elif kind=='rig':
-   run([BLENDER,'-b','--python',str(ROOT/'workers'/'rig_asset.py'),'--',
-       str(folder/'mesh.glb'),str(folder/'rigged.glb'),str(folder/'rig_qa.json')],900)
+   info=store.read_metadata(pid).get('mesh_qa',{})
+   existing_skin=info.get('source_type')=='external_glb' and info.get('preexisting_skin',False)
+   (folder/'rigged.glb').unlink(missing_ok=True)
+   if existing_skin:
+    # Review existing weights/bone names; do not silently destroy an authored rig.
+    run([BLENDER,'-b','--python',str(ROOT/'workers'/'review_existing_rig.py'),'--',
+         str(folder/'mesh.glb'),str(folder/'rig_qa.json')],900)
+    import shutil
+    shutil.copyfile(folder/'mesh.glb',folder/'rigged.glb')
+   else:
+    run([BLENDER,'-b','--python',str(ROOT/'workers'/'rig_asset.py'),'--',
+         str(folder/'mesh.glb'),str(folder/'rigged.glb'),str(folder/'rig_qa.json')],900)
    qa=json.loads((folder/'rig_qa.json').read_text())
    qa['gltf']=inspect(folder/'rigged.glb',require_skin=True)
    store.update_metadata(pid,rig_qa=qa)
