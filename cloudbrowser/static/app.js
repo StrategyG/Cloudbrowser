@@ -20,7 +20,15 @@ async function api(path, options = {}) {
 }
 const post = (path, body = {}) => api(path, { method: "POST", body: JSON.stringify(body) });
 function showLogin() { $("login").hidden = false; $("workspace").hidden = true; csrf = ""; clearInterval(stateTimer); clearInterval(screenTimer); }
+// Google Sites is only a launcher. Never accept an arbitrary external redirect URL.
+function openPortalTarget() {
+  if (new URLSearchParams(window.location.search).get("open") !== "studio") return false;
+  window.history.replaceState(null, "", "/");
+  window.location.assign("/studio#morphglb");
+  return true;
+}
 async function showWorkspace() {
+  if (openPortalTarget()) return;
   $("login").hidden = true; $("workspace").hidden = false;
   await refresh();
   clearInterval(stateTimer); stateTimer = setInterval(() => refresh().catch(e => toast(e.message)), 3000);
