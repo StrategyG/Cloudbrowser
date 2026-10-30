@@ -1,0 +1,60 @@
+name: Gemini AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  gemini_review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install google-genai requests
+
+      - name: Run Gemini Review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python -c "
+          import os, requests
+          from google import genai
+
+          # Inisialisasi klien Gemini
+          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
+          
+          # Ambil diff dari Pull Request via GitHub API
+          token = os.environ['GITHUB_TOKEN']
+          repo = os.environ['REPOSITORY']
+          pr_num = os.environ['PR_NUMBER']
+          
+          headers = {'Authorization': f'Bearer {token}', 'Accept': 'vnd.github+json'}
+          diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_num}'
+          
+          # Ambil file yang diubah atau diff
+          response = requests.get(diff_url, headers=headers)
+          pr_data = response.json()
+          
+          # Kirim prompt analisis ke Gemini
+          prompt = f'Tolong berikan ulasan kode (code review) dan saran perbaikan singkat untuk Pull Request ini: {pr_data.get(\"title\", \"\")}'
+          
+          response_gemini = client.models.generate_content(
+              model='gemini-2.5-flash',
+              contents=prompt,
+          )
+          
+          # Kirim komentar Gemini kembali ke Pull Request GitHub
+          comment_url = f'https://api.github.com/repos/{repo}/issues/{pr_num}/comments'
+          requests.post(comment_url, headers=headers, json={'body': f'### Gemini AI Review\n\n{response_gemini.text}'})
+          "
