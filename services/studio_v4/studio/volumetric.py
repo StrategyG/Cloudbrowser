@@ -64,7 +64,9 @@ def generate_volumetric_draft(png: Path, out: Path, *, max_side: int = 96,
             faces.append((idx,b,a) if ring_index == 0 else (idx,a,b))
     mesh = trimesh.Trimesh(vertices=np.asarray(vertices,dtype=np.float32),
                            faces=np.asarray(faces,dtype=np.int64),process=False)
-    mesh.fix_normals()
+    # Topology is one connected manifold with known winding; avoid SciPy-only repair.
+    if mesh.volume < 0:
+        mesh.invert()
     if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
         raise ValueError("Inferred 3D draft failed topology checks")
     material = trimesh.visual.material.SimpleMaterial(image=rgba)
