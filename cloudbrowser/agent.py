@@ -306,10 +306,14 @@ class Agent:
     async def execute(self, name: str, args: dict) -> dict:
         tool = TOOL_MAP[name]
         if name == "rag_search":
-            return await self.rag.search(self.store.get("current_project", "default"),
+            project = (self.store.job(self.active_job)["project_id"] if self.active_job
+                       else self.store.get("current_project", "default"))
+            return await self.rag.search(project,
                                          args["query"], args["limit"])
         if name == "rag_ingest_artifact":
-            return await self.rag.ingest(self.store.get("current_project", "default"),
+            project = (self.store.job(self.active_job)["project_id"] if self.active_job
+                       else self.store.get("current_project", "default"))
+            return await self.rag.ingest(project,
                                          args["artifact_id"],
                                          self.artifacts.path(args["artifact_id"]))
         if name == "mcp_list_tools":
