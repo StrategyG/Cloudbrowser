@@ -11,7 +11,6 @@ import pytest
 from mcp import Client
 from mcp.server.mcpserver import MCPServer
 
-from cloudbrowser.config import Settings
 from cloudbrowser.mcp_gateway import MCPGateway
 from cloudbrowser.rag_client import RAGClient
 from cloudbrowser.tools import TOOL_MAP
