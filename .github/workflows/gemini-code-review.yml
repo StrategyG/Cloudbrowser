@@ -1,0 +1,56 @@
+name: Gemini AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: gemini-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gemini_review:
+    # Forks have no secrets on pull_request; never execute untrusted PR code.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted base commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Gemini SDK
+        run: python -m pip install 'google-genai>=1,<3'
+
+      - name: Review PR diff and update one bot comment
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ ! -f scripts/gemini_pr_review.py ]]; then
+            echo "Reviewer not on trusted base branch yet; initial run skipped."
+            exit 0
+          fi
+          if [[ -z "$GEMINI_API_KEY" ]]; then
+            echo "::error::Set repository Actions secret GEMINI_API_KEY"
+            exit 1
+          fi
+          python scripts/gemini_pr_review.py
