@@ -101,6 +101,40 @@ changed input PNG bytes or parameters force a new render. Failed or cancelled
 encodes remove their unregistered partial MP4. These protections reduce
 duplicate CPU work; they are not a substitute for persistent backup.
 
+## Layered 2D scenes: up to five characters
+
+\`render_cpu_scene\` composes one registered PNG background and up to five
+transparent sprite actors in draw order (back-to-front). Each actor can have
+1–4 authored pose PNGs, an independent horizontal translation and a pose
+hold time. The engine uses CPU FFmpeg; it does not calculate skeletons,
+inverse kinematics, shading, phonemes or natural movement. For ARUSIA, provide
+real Kio/Lumi/Arka/Mayor/RUX pose assets and review visual correctness.
+
+Example inputs (replace every illustrative artifact ID with actual IDs):
+
+\`\`\`json
+{
+  "background_id": "00000000000000000000000000000001",
+  "actors": [
+    {"pose_ids": ["00000000000000000000000000000002"],
+     "actor_width": 180, "start_x": 30, "end_x": 250,
+     "y": 400, "pose_hold_frames": 3},
+    {"pose_ids": ["00000000000000000000000000000003"],
+     "actor_width": 180, "start_x": 450, "end_x": 450,
+     "y": 400, "pose_hold_frames": 3}
+  ],
+  "duration": 8,
+  "width": 1280, "height": 720, "fps": 24
+}
+\`\`\`
+
+Scenes are individually bounded to 15 seconds or 900 frames and no more
+than 20 actor pose PNG inputs. Actor layers are planar overlays; use the
+author-supplied layer order for foreground/background occlusion. The editor
+can queue this tool through Cloudbrowser, then use
+\`assemble_cpu_episode\` to combine approved shots. Keep heavy render work
+serial on low-resource Codespaces machines.
+
 ## Full CPU episode assembly (up to 120 approved MP4 shots)
 
 The new \`assemble_cpu_episode\` editor/orchestrator tool accepts 1–120
