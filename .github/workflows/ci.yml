@@ -61,6 +61,37 @@ jobs:
             /tmp/cloudbrowser-studio-smoke/smoke_report.json
           if-no-files-found: warn
           retention-days: 7
+  knowledge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      pgvector:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: knowledge
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: ci-test-only-password
+        ports:
+          - 5439:5432
+        options: >-
+          --health-cmd "pg_isready -U rag -d knowledge"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'psycopg[binary]>=3.2,<4' 'pgvector>=0.4,<0.5'
+      - name: Real vector retrieval + project scoping
+        run: python scripts/smoke_pgvector.py
+        env:
+          RAG_TEST_DB_URL: postgresql://rag:ci-test-only-password@localhost:5439/knowledge
+      - name: Verify optional Docker configuration
+        run: docker compose -f compose.yaml -f compose.knowledge.yaml --profile knowledge config -q
+        env:
+          RAG_API_TOKEN: ci-only-private-token-with-32-characters
+          RAG_DB_PASSWORD: ci-only-db-pass
+          RAG_EMBEDDING_DIR: /tmp
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 20
