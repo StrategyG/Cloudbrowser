@@ -47,7 +47,7 @@ def validate_security_config(api_token: str = API_TOKEN, environment: str = STUD
 
     if not _is_256_bit_token(api_token):
         raise RuntimeError(
-            'STUDIO_API_TOKEN must be 64 hex characters or at least 43 URL-safe '
-            'base64 characters with sufficient character diversity; generate with '
+            'STUDIO_API_TOKEN must encode at least 256-bit random material: use 64 hex '
+            'characters or at least 43 URL-safe base64 characters with sufficient character diversity; generate with '
             'secrets.token_hex(32) or secrets.token_urlsafe(32)'
         )
