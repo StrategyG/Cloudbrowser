@@ -72,7 +72,7 @@ jobs:
             echo "Studio unexpectedly started in production without a service token"
             exit 1
           fi
-          STUDIO_ENV=production STUDIO_API_TOKEN="ci-only-studio-token-at-least-32-characters" STUDIO_DATA_ROOT="$temp_root/ready" python -c "import studio.api"
+          STUDIO_ENV=production STUDIO_API_TOKEN="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" STUDIO_DATA_ROOT="$temp_root/ready" python -c "import studio.api"
       - run: docker compose -f compose.yaml -f compose.studio.yaml config -q
         env:
           STUDIO_API_TOKEN: ci-only-placeholder-token-at-least-32-characters
