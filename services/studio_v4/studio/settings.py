@@ -23,9 +23,9 @@ def validate_security_config(api_token: str = API_TOKEN, environment: str = STUD
     """Fail closed for production and reject weak shared service credentials."""
     if not isinstance(api_token, str):
         raise RuntimeError('STUDIO_API_TOKEN must be a string')
-    if api_token and len(api_token) < 32:
-        raise RuntimeError('STUDIO_API_TOKEN must contain at least 32 characters')
     if not isinstance(environment, str):
         raise RuntimeError('STUDIO_ENV must be a string')
     if environment.strip().lower() in {'production', 'prod'} and len(api_token) < 32:
         raise RuntimeError('Production Studio requires STUDIO_API_TOKEN with at least 32 characters')
+    if api_token and len(api_token) < 32:
+        raise RuntimeError('STUDIO_API_TOKEN must contain at least 32 characters')
