@@ -142,8 +142,8 @@ def main() -> None:
     if generated.get("full_3d_reconstruction_verified") is not False:
         raise RuntimeError("Single-view draft must not claim verified full 3D reconstruction")
 
-    mesh_project = process_queued_stage(project_id, "mesh", "mesh_review")
-    mesh_qa = mesh_project.get("metadata", {}).get("mesh_qa", {})
+    process_queued_stage(project_id, "mesh", "mesh_review")
+    mesh_qa = store.read_metadata(project_id).get("mesh_qa", {})
     if not mesh_qa.get("volumetric_mesh") or mesh_qa.get("full_3d_reconstruction") is not False:
         raise RuntimeError(f"Volumetric draft disclosure/QA missing: {mesh_qa!r}")
     if not mesh_qa.get("watertight") or not mesh_qa.get("winding_consistent"):
@@ -152,8 +152,8 @@ def main() -> None:
         raise RuntimeError(f"Volumetric draft has no meaningful depth: {mesh_qa!r}")
 
     approve_stage(client, project_id, "mesh", "mesh_review")
-    rig_project = process_queued_stage(project_id, "rig", "rig_review")
-    rig_qa = rig_project.get("metadata", {}).get("rig_qa", {})
+    process_queued_stage(project_id, "rig", "rig_review")
+    rig_qa = store.read_metadata(project_id).get("rig_qa", {})
     if rig_qa.get("unweighted_vertices") != 0:
         raise RuntimeError(f"Rig contains unweighted vertices: {rig_qa!r}")
     if rig_qa.get("gltf", {}).get("skins", 0) < 1:
@@ -175,8 +175,8 @@ def main() -> None:
         raise RuntimeError("Generated scene manifest is missing")
 
     approve_stage(client, project_id, "manifest", "manifest_review")
-    completed = process_queued_stage(project_id, "render", "completed")
-    final_metadata = completed.get("metadata", {})
+    process_queued_stage(project_id, "render", "completed")
+    final_metadata = store.read_metadata(project_id)
     render_qa = final_metadata.get("render_qa", {})
     mp4_sha256 = render_qa.get("mp4_sha256")
     if not isinstance(mp4_sha256, str) or len(mp4_sha256) != 64:
