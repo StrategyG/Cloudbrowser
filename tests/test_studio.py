@@ -25,7 +25,7 @@ PID = "a" * 32
 
 def configure(settings):
     settings.studio_base_url = "http://studio-api:8000"
-    settings.studio_api_token = "test-studio-secret-" * 3
+    settings.studio_api_token = "0123456789abcdef" * 4
     return settings
 
 
