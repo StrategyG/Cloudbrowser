@@ -64,6 +64,15 @@ jobs:
       - run: pip install -r services/studio_v4/requirements.lock
       - run: python -m pytest -q tests
         working-directory: services/studio_v4
+      - name: Verify production Studio rejects missing credentials
+        working-directory: services/studio_v4
+        run: |
+          temp_root="$(mktemp -d)"
+          if env -u STUDIO_API_TOKEN STUDIO_ENV=production STUDIO_DATA_ROOT="$temp_root/missing" python -c "import studio.api"; then
+            echo "Studio unexpectedly started in production without a service token"
+            exit 1
+          fi
+          STUDIO_ENV=production STUDIO_API_TOKEN="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" STUDIO_DATA_ROOT="$temp_root/ready" python -c "import studio.api"
       - run: docker compose -f compose.yaml -f compose.studio.yaml config -q
         env:
           STUDIO_API_TOKEN: ci-only-placeholder-token-at-least-32-characters

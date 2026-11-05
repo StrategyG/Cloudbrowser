@@ -9,11 +9,13 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from . import store
-from .settings import API_TOKEN, DATA_ROOT, MAX_UPLOAD_BYTES
+from .settings import API_TOKEN, DATA_ROOT, MAX_UPLOAD_BYTES, validate_security_config
 from .mesh import validate_png
 from .import_glb import MAX_GLB_UPLOAD_BYTES, validate_imported_glb
 from .manifest import Manifest, plan
 from .scene_intelligence import inspect_project, motion_preflight
+
+validate_security_config()
 
 ROOT=Path(__file__).resolve().parent.parent
 app=FastAPI(title='Full Pipeline Studio Godot V4.1',version='4.1.0')
