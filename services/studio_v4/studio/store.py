@@ -70,13 +70,25 @@ def change_state(pid, expected, new):
   cursor=c.execute('UPDATE projects SET state=?,updated_at=? WHERE id=? AND state=?',(new,time.time(),pid,expected))
   if cursor.rowcount!=1: raise ValueError('project state changed; reload first')
 
-def enqueue(pid, kind, expected, running_state):
+def enqueue(pid, kind, expected, running_state, *, metadata_updates=None):
+ """Atomically bind immutable generation parameters to a newly queued stage."""
  if running_state not in TRANSITIONS.get(expected,set()):raise ValueError('illegal state transition')
  jid=uuid.uuid4().hex; now=time.time()
  with conn() as c:
-  changed=c.execute('UPDATE projects SET state=?,updated_at=? WHERE id=? AND state=?',(running_state,now,pid,expected))
+  c.execute('BEGIN IMMEDIATE')
+  if metadata_updates:
+   row=c.execute('SELECT metadata FROM projects WHERE id=? AND state=?',(pid,expected)).fetchone()
+   if not row:raise ValueError('project state changed; reload first')
+   metadata=json.loads(row['metadata'])
+   metadata.update(metadata_updates)
+   changed=c.execute('UPDATE projects SET state=?,metadata=?,updated_at=? WHERE id=? AND state=?',
+                     (running_state,json.dumps(metadata),now,pid,expected))
+  else:
+   changed=c.execute('UPDATE projects SET state=?,updated_at=? WHERE id=? AND state=?',
+                     (running_state,now,pid,expected))
   if changed.rowcount!=1:raise ValueError('project state changed; reload first')
-  c.execute('INSERT INTO jobs(id,project_id,kind,state,created_at,updated_at) VALUES(?,?,?,?,?,?)',(jid,pid,kind,'queued',now,now))
+  c.execute('INSERT INTO jobs(id,project_id,kind,state,created_at,updated_at) VALUES(?,?,?,?,?,?)',
+            (jid,pid,kind,'queued',now,now))
  return jid
 
 def claim_job():

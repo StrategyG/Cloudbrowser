@@ -7,6 +7,7 @@ from pathlib import Path
 from . import store
 from .settings import DATA_ROOT, BLENDER, FFMPEG
 from .mesh import generate_mesh
+from .volumetric import generate_volumetric_draft
 from .godot_render import render as godot_render
 from .render_gate import verify_render_inputs
 from .gltf_qa import inspect
@@ -26,7 +27,13 @@ def run_job(job):
  pid=job['project_id']; kind=job['kind'];folder=DATA_ROOT/pid
  try:
   if kind=='mesh':
-   qa=generate_mesh(folder/'source.png',folder/'mesh.glb')
+   mode=store.read_metadata(pid).get('generation',{}).get('mesh_mode','silhouette_2_5d')
+   if mode=='volumetric_draft_3d':
+    qa=generate_volumetric_draft(folder/'source.png',folder/'mesh.glb')
+   elif mode=='silhouette_2_5d':
+    qa=generate_mesh(folder/'source.png',folder/'mesh.glb')
+   else:
+    raise ValueError('Unknown mesh generation mode')
    qa['gltf']=inspect(folder/'mesh.glb')
    (folder/'mesh_qa.json').write_text(json.dumps(qa,indent=2))
    store.update_metadata(pid,mesh_qa=qa)

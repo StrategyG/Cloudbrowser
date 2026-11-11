@@ -5,6 +5,7 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Literal
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
@@ -123,6 +124,42 @@ async def upload_asset(asset: UploadFile = File(...)):
  return {'id': pid, 'state': 'mesh_review' if suffix == '.glb' else 'uploaded',
          'source_type': suffix[1:] }
 
+class GeneratedVideoRequest(BaseModel):
+ """Opt-in generated workflow with mandatory approval at each asset gate."""
+ prompt: str=Field(min_length=1,max_length=1200)
+ mesh_mode: Literal['volumetric_draft_3d','silhouette_2_5d']='volumetric_draft_3d'
+ fps: Literal[24,30,60]=24
+ character: str=Field(default='KIO',pattern=r'^[A-Za-z0-9_-]{1,70}$')
+ width: Literal[640,1280,1920]=1280
+ height: Literal[360,720,1080]=720
+
+
+@app.post('/api/projects/{pid}/generate')
+def generate_video_draft(pid:str,request:GeneratedVideoRequest):
+ """Start generated PNG→mesh→rig→manifest→MP4 with owner approvals."""
+ p=project_or_404(pid)
+ if p['state']!='uploaded':
+  raise HTTPException(409,'Generated workflow can only start from an unprocessed PNG')
+ if json.loads(p['metadata']).get('source',{}).get('type')!='png':
+  raise HTTPException(409,'Generated workflow requires a PNG source')
+ check_source_integrity(pid,p)
+ try:
+  plan(request.prompt,request.fps,request.character,request.width,request.height)
+ except (ValueError,TypeError) as exc:
+  raise HTTPException(422,str(exc)) from exc
+ config=request.model_dump()
+ config['auto_advance']=True
+ try:
+  jid=store.enqueue(pid,'mesh','uploaded','mesh_building',
+                    metadata_updates={'generation':config})
+ except ValueError as exc:
+  bad_transition(exc)
+ return {'id':pid,'state':'mesh_building','job_id':jid,
+         'mesh_mode':request.mesh_mode,'requires_owner_approval':True,
+         'next_gate':'mesh_review','automatic_after_approval':True,
+         'full_3d_reconstruction_verified':False}
+
+
 @app.get('/api/projects/{pid}')
 def get_project(pid:str):
  p=project_or_404(pid)
@@ -219,7 +256,22 @@ def approve(pid:str,item:Approval):
   store.update_metadata(pid,manifest_approved_sha256=approved_digest)
  try:store.change_state(pid,*expected)
  except ValueError as exc:bad_transition(exc)
- return {'state':expected[1],'approval_recorded':True}
+ result={'state':expected[1],'approval_recorded':True}
+ generation=metadata.get('generation',{})
+ if generation.get('auto_advance'):
+  # Each progression is allowed only after exact owner approval.
+  try:
+   if item.stage=='mesh':
+    result['next']=build_rig(pid)
+   elif item.stage=='rig':
+    settings={k:generation[k] for k in ('prompt','fps','character','width','height')}
+    submit_prompt(pid,PromptRequest(**settings))
+    result['next']={'state':'manifest_review','requires_owner_approval':True}
+   elif item.stage=='manifest':
+    result['next']=render_video(pid)
+  except (HTTPException,ValueError,TypeError) as exc:
+   result['auto_advance_error']=str(getattr(exc,'detail',exc))[:300]
+ return result
 
 @app.post('/api/projects/{pid}/retry')
 def retry_project(pid:str):
