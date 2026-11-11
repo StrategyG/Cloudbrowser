@@ -32,8 +32,12 @@ updates one bot comment and does not merge code automatically.
   on confidential repositories without authorization and a data-sharing policy.
 - Only comments owned by github-actions[bot] with the matching marker are
   edited, so other human or bot reviews are preserved.
-- Gemini quota, model deprecations and API errors can cause job failures.
-  Failures never fabricate a successful code review.
+- Transient Gemini provider HTTP 429/500/502/503/504 responses emit a
+  GitHub Actions warning and **exit nonzero (75)**. No review is posted or
+  updated. The advisory check stays FAILED rather than falsely succeeding
+  without an AI review; rerun after recovery or request human review.
+- Authentication failures, invalid models and other non-transient errors still
+  fail the Gemini workflow; neither path fabricates an approval.
 - SDK version constraints are intentionally broad in this initial integration.
   Review and pin the resolved dependencies for a higher-assurance deployment.
 

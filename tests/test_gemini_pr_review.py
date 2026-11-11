@@ -1,6 +1,14 @@
 """Offline unit tests for Gemini PR review guards and coverage."""
 
-from scripts.gemini_pr_review import MARKER, build_diff, find_review_comment
+import pytest
+
+from scripts.gemini_pr_review import (
+    MARKER,
+    build_diff,
+    fail_transient_gemini_review,
+    find_review_comment,
+    should_defer_gemini_status,
+)
 
 
 def test_diff_reads_real_patch():
@@ -57,3 +65,24 @@ def test_patch_truncation_is_disclosed():
     )
     assert "[Patch truncated.]" in body
     assert stats["truncated"] == 1
+
+
+def test_temporary_provider_failures_defer_advisory_review():
+    for status in (429, 500, 502, 503, 504):
+        assert should_defer_gemini_status(status)
+
+
+def test_client_and_configuration_errors_do_not_defer_review():
+    for status in (None, "503", 400, 401, 403, 404, 422, True):
+        assert not should_defer_gemini_status(status)
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+def test_deferred_ai_review_is_not_a_successful_check(status, capsys):
+    with pytest.raises(SystemExit) as error:
+        fail_transient_gemini_review(status)
+    assert error.value.code == 75
+    notice = capsys.readouterr().out
+    assert "::warning title=Gemini review deferred::" in notice
+    assert "no review was created" in notice
+    assert f"HTTP {status}" in notice
