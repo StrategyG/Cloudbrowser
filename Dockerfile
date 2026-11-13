@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.64.1-noble
+FROM mcr.microsoft.com/playwright/python:v1.65.1-noble
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
